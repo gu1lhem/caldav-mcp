@@ -12,6 +12,7 @@ import {
   type CalDavResult,
 } from '@spy4x/caldav';
 import { sameResource } from '@spy4x/caldav/url';
+import { uuidV7 } from '@spy4x/platform/universal/uuid';
 import {
   getProperty,
   type IcalComponent,
@@ -81,7 +82,7 @@ export interface EngineOptions {
   now?: () => Date;
   /** IANA zone that date-only and floating values are read in. Default: the host's zone. */
   zone?: string;
-  /** UID generator for new tasks and events. Default: `crypto.randomUUID()`. */
+  /** UID generator for new tasks and events. Default: a UUID version 7. */
   uid?: () => string;
 }
 
@@ -273,7 +274,7 @@ export class QueryEngine {
     this.#client = client;
     this.#now = options.now ?? (() => new Date());
     this.#zone = options.zone ?? Intl.DateTimeFormat().resolvedOptions().timeZone;
-    this.#uid = options.uid ?? (() => crypto.randomUUID());
+    this.#uid = options.uid ?? uuidV7;
   }
 
   /** The IANA zone that date-only and floating values are read in. */

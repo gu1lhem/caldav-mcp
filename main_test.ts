@@ -18,7 +18,8 @@ import { registerAllTools } from './tools/index.ts';
 import { createFakeCalDav, HOME, ORIGIN, PASSWORD, USER } from './caldav/testing/fake_caldav.ts';
 import { createCalDavClient } from '@spy4x/caldav';
 import { createEnvReader } from '@spy4x/server/config/env';
-import { assertEquals, assertNotEquals, assertThrows } from 'std/assert/mod.ts';
+import { assertEquals, assertMatch, assertNotEquals, assertThrows } from 'std/assert/mod.ts';
+import { UUID_V7_PATTERN } from '@spy4x/platform/universal/uuid';
 
 const TOKEN = 'test-token-123';
 
@@ -358,14 +359,14 @@ const INITIALIZE = {
   },
 };
 
-Deno.test('an initialize answer carries a new Mcp-Session-Id, other answers carry none', async () => {
+Deno.test('an initialize answer carries a new UUID version 7 as Mcp-Session-Id, other answers carry none', async () => {
   const { handler } = setup();
   const first = await handler(post(INITIALIZE, AUTH));
   const second = await handler(post(INITIALIZE, AUTH));
   const ping = await handler(post(PING, AUTH));
   await Promise.all([first, second, ping].map((res) => res.body?.cancel()));
   const id = first.headers.get(SESSION_ID_HEADER);
-  assertEquals(typeof id === 'string' && /^[\x21-\x7e]+$/.test(id), true);
+  assertMatch(id ?? '', UUID_V7_PATTERN);
   assertNotEquals(second.headers.get(SESSION_ID_HEADER), id);
   assertEquals(ping.headers.get(SESSION_ID_HEADER), null);
 });

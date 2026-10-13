@@ -1,24 +1,30 @@
 // ── Tool tests through the MCP handler ──
 
-import { assert, assertEquals } from 'std/assert/mod.ts';
+import { assert, assertEquals, assertMatch } from 'std/assert/mod.ts';
+import { UUID_V7_PATTERN } from '@spy4x/platform/universal/uuid';
+import type { EngineOptions } from '../caldav/query.ts';
 import { McpHandler } from '../mcp.ts';
 import { registerAllTools, type ToolMode } from './index.ts';
 import { ORIGIN } from '../caldav/testing/fake_caldav.ts';
 import {
+  EVENTS,
   lineDiff,
+  MEETING,
   MEETING_ETAG,
   MEETING_PATH,
   setup,
+  TASKS,
   TASKS_ORG_ETAG,
   TASKS_ORG_PATH,
+  ZONED,
   ZONED_ETAG,
   ZONED_PATH,
 } from '../caldav/testing/fixtures.ts';
 
 const url = (path: string) => `${ORIGIN}${path}`;
 
-function server(mode: ToolMode = 'all') {
-  const { fake, engine } = setup();
+function server(mode: ToolMode = 'all', engineOptions: EngineOptions = {}) {
+  const { fake, engine } = setup(engineOptions);
   const mcp = new McpHandler({ name: 'test', version: '0.0.0' });
   registerAllTools(mcp, engine, mode);
   const call = async (name: string, args: Record<string, unknown>) => {
@@ -302,4 +308,63 @@ Deno.test('no-delete refuses a delete_todo call and sends no DELETE', async () =
 
 Deno.test('read-only lists only the five tools that change nothing', async () => {
   assertEquals(await listedNames(server('read-only').mcp), READ_TOOLS);
+});
+
+Deno.test('a task and an event created without a uid get a UUID version 7', async () => {
+  const { call, fake } = server('all', { uid: undefined });
+  const todo = await call('create_todo', { calendarUrl: url(TASKS), summary: 'Buy milk' });
+  const event = await call('create_event', {
+    calendarUrl: url(EVENTS),
+    summary: 'Dentist',
+    start: '2026-10-20T09:00:00Z',
+    end: '2026-10-20T10:00:00Z',
+  });
+  for (const created of [todo, event]) {
+    assertEquals(created.isError, false);
+    const uid = created.body['uid'] as string;
+    assertMatch(uid, UUID_V7_PATTERN);
+    const data = fake.objects.get(new URL(created.body['url'] as string).pathname)!.data;
+    assert(data.includes(`\r\nUID:${uid}\r\n`));
+  }
+  assert(todo.body['uid'] !== event.body['uid']);
+});
+
+Deno.test('a task and an event with a version 4 UID are read, updated and deleted under that UID', async () => {
+  const { call, fake } = server();
+  const entries = [
+    {
+      kind: 'todo',
+      uid: '3f2b8c1e-9d4a-4e6b-a1c7-5d2e8f0b9a34',
+      path: `${TASKS}3f2b8c1e-9d4a-4e6b-a1c7-5d2e8f0b9a34.ics`,
+      data: ZONED.replace('UID:zoned-task-uid', 'UID:3f2b8c1e-9d4a-4e6b-a1c7-5d2e8f0b9a34'),
+    },
+    {
+      kind: 'event',
+      uid: '0b6d1f7a-2c3e-4a58-9b1d-7e4c2a6f8d90',
+      path: `${EVENTS}0b6d1f7a-2c3e-4a58-9b1d-7e4c2a6f8d90.ics`,
+      data: MEETING.replace('UID:team-sync', 'UID:0b6d1f7a-2c3e-4a58-9b1d-7e4c2a6f8d90'),
+    },
+  ];
+  for (const { kind, uid, path, data } of entries) {
+    assert(data.includes(`\r\nUID:${uid}\r\n`), 'the fixture carries the version 4 UID');
+    fake.objects.set(path, { etag: '"v4-1"', data });
+
+    const read = await call(`get_${kind}`, { url: url(path) });
+    assertEquals(read.isError, false);
+    assertEquals(read.body['uid'], uid);
+
+    const updated = await call(`update_${kind}`, {
+      url: url(path),
+      etag: read.body['etag'],
+      summary: 'Renamed',
+    });
+    assertEquals(updated.isError, false);
+    const after = fake.objects.get(path)!;
+    assert(after.data.includes('\r\nSUMMARY:Renamed\r\n'));
+    assert(after.data.includes(`\r\nUID:${uid}\r\n`), 'the update keeps the version 4 UID');
+
+    const deleted = await call(`delete_${kind}`, { url: url(path), etag: after.etag });
+    assertEquals(deleted.isError, false);
+    assert(!fake.objects.has(path));
+  }
 });

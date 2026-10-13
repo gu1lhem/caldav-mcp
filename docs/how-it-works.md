@@ -72,7 +72,6 @@ caldav-mcp/
 |-------------|---------|------|
 | TypeScript | ❌ Needs tsconfig + transpiler | **✅ Native** |
 | fetch() | ❌ Needs axios/undici | **✅ Built-in** |
-| crypto.randomUUID() | ❌ Needs uuid package | **✅ Built-in** |
 | File I/O | ❌ Needs fs/promises | **✅ Native** |
 | Binary compile | ❌ Needs pkg/ncc | **✅ deno compile** |
 | Standard library | ❌ npm chaos | **✅ deno.land/std** |

@@ -3,7 +3,7 @@
 // names differ from UIDs, as they do for every task Tasks.org creates.
 
 import { createCalDavClient } from '@spy4x/caldav';
-import { QueryEngine } from '../query.ts';
+import { type EngineOptions, QueryEngine } from '../query.ts';
 import { createFakeCalDav, type FakeCalDav, HOME, ORIGIN, PASSWORD, USER } from './fake_caldav.ts';
 
 const crlf = (lines: string[]) => lines.join('\r\n') + '\r\n';
@@ -133,8 +133,11 @@ export interface Setup {
   engine: QueryEngine;
 }
 
-/** The fake server with every fixture, and an engine on it with a fixed clock, zone and UID. */
-export function setup(): Setup {
+/**
+ * The fake server with every fixture, and an engine on it with a fixed clock, zone and UID.
+ * `options` replaces any of the three; `{ uid: undefined }` gives the engine's own UID generator.
+ */
+export function setup(options: EngineOptions = {}): Setup {
   const fake = createFakeCalDav(
     {
       [TASKS]: { displayName: 'Inbox', components: ['VTODO'] },
@@ -156,6 +159,7 @@ export function setup(): Setup {
     now: () => NOW,
     zone: ZONE,
     uid: () => 'new-uid-1',
+    ...options,
   });
   return { fake, engine };
 }

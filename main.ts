@@ -16,6 +16,7 @@ import {
 } from '@spy4x/server/http/bearer-auth';
 import { createMemoryRateLimiter } from '@spy4x/platform/rate-limit/memory';
 import { clientIp, clientIpBucket } from '@spy4x/platform/rate-limit/client-ip';
+import { uuidV7 } from '@spy4x/platform/universal/uuid';
 import {
   BodyReadTimeoutError,
   PayloadTooLargeError,
@@ -337,7 +338,7 @@ async function handleMcpPost(req: Request, mcp: McpHandler): Promise<Response> {
   // Notifications and client responses get no answer: acknowledge them without a body.
   if (!response) return new Response(null, { status: 202 });
   const initialized = [response].flat().some(isInitializeResult);
-  return json(response, 200, initialized ? { [SESSION_ID_HEADER]: crypto.randomUUID() } : {});
+  return json(response, 200, initialized ? { [SESSION_ID_HEADER]: uuidV7() } : {});
 }
 
 function isInitializeResult(response: JsonRpcResponse): boolean {

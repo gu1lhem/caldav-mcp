@@ -41,11 +41,11 @@
   },
   "imports": {
     "std/": "https://deno.land/std@0.224.0/",
-    "@spy4x/caldav": "jsr:@spy4x/caldav@1.49.0",
-    "@spy4x/net": "jsr:@spy4x/net@1.49.0",
-    "@spy4x/platform": "jsr:@spy4x/platform@1.49.0",
-    "@spy4x/server": "jsr:@spy4x/server@1.49.0",
-    "@spy4x/time": "jsr:@spy4x/time@1.49.0",
+    "@spy4x/caldav": "jsr:@spy4x/caldav@1.63.0",
+    "@spy4x/net": "jsr:@spy4x/net@1.63.0",
+    "@spy4x/platform": "jsr:@spy4x/platform@1.63.0",
+    "@spy4x/server": "jsr:@spy4x/server@1.63.0",
+    "@spy4x/time": "jsr:@spy4x/time@1.63.0",
     // The version @spy4x/server's mcp-oauth is built on, so the lockfile holds one copy.
     "hono": "jsr:@hono/hono@4.13.8"
   }
