@@ -4,6 +4,7 @@ import {
   AUTH_FAILURE_LIMIT,
   createHttpHandler,
   createLogger,
+  engineOptions,
   httpHandlerOptions,
   httpListenOptions,
   MAX_BODY_BYTES,
@@ -12,6 +13,10 @@ import {
 } from './main.ts';
 import { McpHandler } from './mcp.ts';
 import { loadEnv } from './env.ts';
+import { QueryEngine } from './caldav/query.ts';
+import { registerAllTools } from './tools/index.ts';
+import { createFakeCalDav, HOME, ORIGIN, PASSWORD, USER } from './caldav/testing/fake_caldav.ts';
+import { createCalDavClient } from '@spy4x/caldav';
 import { createEnvReader } from '@spy4x/server/config/env';
 import { assertEquals, assertNotEquals, assertThrows } from 'std/assert/mod.ts';
 
@@ -404,4 +409,124 @@ Deno.test('an unsupported MCP-Protocol-Version header gets 400', async () => {
   const good = await handler(post(PING, { ...AUTH, 'MCP-Protocol-Version': '2025-06-18' }));
   await good.body?.cancel();
   assertEquals(good.status, 200);
+});
+
+const task = (uid: string, due: string) =>
+  [
+    'BEGIN:VCALENDAR',
+    'VERSION:2.0',
+    'PRODID:-//test//EN',
+    'BEGIN:VTODO',
+    'DTSTAMP:20261001T080000Z',
+    `UID:${uid}`,
+    `SUMMARY:${uid}`,
+    `DUE${due}`,
+    'END:VTODO',
+    'END:VCALENDAR',
+  ].join('\r\n') + '\r\n';
+
+/**
+ * Calls `query_todos` on a server built the way `main` builds it from `CALDAV_MCP_TIME_ZONE`, with
+ * the process running in `hostZone`. Returns the overdue count and the summaries listed.
+ */
+async function queryTodosUnder(
+  hostZone: string,
+  ownerZone: string,
+  now: string,
+  dues: Record<string, string>,
+  args: Record<string, unknown>,
+): Promise<{ overdue: unknown; listed: string[] }> {
+  const before = Deno.env.get('TZ');
+  Deno.env.set('TZ', hostZone);
+  try {
+    // Guards the test itself: if the runtime ignored TZ, both host zones would be the same one.
+    assertEquals(Intl.DateTimeFormat().resolvedOptions().timeZone, hostZone);
+    const tasks = `${HOME}tasks/`;
+    const fake = createFakeCalDav(
+      { [tasks]: { displayName: 'Inbox', components: ['VTODO'] } },
+      Object.fromEntries(
+        Object.entries(dues).map((
+          [uid, due],
+        ) => [`${tasks}${uid}.ics`, { etag: `"${uid}"`, data: task(uid, due) }]),
+      ),
+    );
+    const client = createCalDavClient({
+      serverUrl: `${ORIGIN}/dav/`,
+      auth: { username: USER, password: PASSWORD },
+      fetch: (input, init) => fake.fetch(input, init),
+    });
+    const env = loadEnv(createEnvReader({
+      CALDAV_URL: 'https://cal.example.com',
+      CALDAV_USERNAME: 'user',
+      CALDAV_PASSWORD: 'pass',
+      CALDAV_MCP_TIME_ZONE: ownerZone,
+    }));
+    const engine = new QueryEngine(client, { ...engineOptions(env), now: () => new Date(now) });
+    const mcp = new McpHandler({ name: 'test', version: '0.0.0' });
+    registerAllTools(mcp, engine, 'all');
+    const response = await mcp.handleRequest({
+      jsonrpc: '2.0',
+      id: 1,
+      method: 'tools/call',
+      params: { name: 'query_todos', arguments: args },
+    });
+    const result = response!.result as { content: { text: string }[] };
+    const body = JSON.parse(result.content[0]!.text) as {
+      overdue: unknown;
+      todos: { summary: string }[];
+    };
+    return { overdue: body.overdue, listed: body.todos.map((todo) => todo.summary).sort() };
+  } finally {
+    if (before === undefined) Deno.env.delete('TZ');
+    else Deno.env.set('TZ', before);
+  }
+}
+
+const HOST_ZONES = ['UTC', 'America/Los_Angeles', 'Pacific/Kiritimati'];
+
+// 10:00 UTC is 17:00 in Bangkok: the floating noon has passed there, the floating 20:00 has not.
+const TIMED = {
+  noon: ':20261011T120000',
+  evening: ':20261011T200000',
+  fixed: ':20261011T120000Z',
+};
+
+Deno.test('with CALDAV_MCP_TIME_ZONE set, overdue counts floating due times in that zone under any host zone', async () => {
+  for (const host of HOST_ZONES) {
+    const result = await queryTodosUnder(host, 'Asia/Bangkok', '2026-10-11T10:00:00Z', TIMED, {});
+    assertEquals(result.overdue, 1, `host zone ${host}`);
+  }
+});
+
+Deno.test('with CALDAV_MCP_TIME_ZONE set, a UTC dueBefore picks the same floating tasks under any host zone', async () => {
+  for (const host of HOST_ZONES) {
+    const result = await queryTodosUnder(host, 'Asia/Bangkok', '2026-10-11T10:00:00Z', TIMED, {
+      dueBefore: '2026-10-11T09:00:00Z',
+    });
+    assertEquals(result.listed, ['noon'], `host zone ${host}`);
+  }
+});
+
+Deno.test('with CALDAV_MCP_TIME_ZONE set, a floating dueBefore is read in that zone under any host zone', async () => {
+  for (const host of HOST_ZONES) {
+    // 18:00 in Bangkok is 11:00 UTC: before the task fixed at 12:00 UTC.
+    const result = await queryTodosUnder(host, 'Asia/Bangkok', '2026-10-11T10:00:00Z', TIMED, {
+      dueBefore: '2026-10-11T18:00:00',
+    });
+    assertEquals(result.listed, ['noon'], `host zone ${host}`);
+  }
+});
+
+Deno.test('with CALDAV_MCP_TIME_ZONE set, a whole-day task is overdue once its day ends in that zone under any host zone', async () => {
+  // 18:00 UTC on the 11th is 01:00 on the 12th in Bangkok, and still the 11th in UTC.
+  for (const host of HOST_ZONES) {
+    const result = await queryTodosUnder(
+      host,
+      'Asia/Bangkok',
+      '2026-10-11T18:00:00Z',
+      { allDay: ';VALUE=DATE:20261011' },
+      {},
+    );
+    assertEquals(result.overdue, 1, `host zone ${host}`);
+  }
 });

@@ -80,7 +80,8 @@ The ones you must set:
 | `CALDAV_USERNAME` | `user`                    |
 | `CALDAV_PASSWORD` | `pass`                    |
 
-The HTTP port, the bearer token, OAuth, the log level and `CALDAV_MCP_TOOLS` are optional: see
+The HTTP port, the bearer token, OAuth, the log level, `CALDAV_MCP_TOOLS` and your time zone
+(`CALDAV_MCP_TIME_ZONE`) are optional: see
 [configuration.md](https://github.com/spy4x/caldav-mcp/blob/main/docs/configuration.md).
 Every variable is listed with a placeholder in [`.env.example`](.env.example).
 

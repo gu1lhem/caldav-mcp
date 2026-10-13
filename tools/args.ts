@@ -102,10 +102,10 @@ export function nullableDate(args: Args, name: string): IcalDateValue | null | u
 }
 
 /** A filter bound as an instant; whole days and floating times are read in `zone`. */
-export function optionalInstant(args: Args, name: string, zone?: string): Date | undefined {
+export function optionalInstant(args: Args, name: string, zone: string): Date | undefined {
   const value = nullableDate(args, name);
   if (!value) return undefined;
-  const instant = startInstant(value, zone ?? Intl.DateTimeFormat().resolvedOptions().timeZone);
+  const instant = startInstant(value, zone);
   if (!instant) bad(name, 'a date in a known time zone');
   return instant;
 }

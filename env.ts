@@ -2,6 +2,7 @@
 
 import { type EnvReader, readEnvVar, systemEnv } from '@spy4x/server/config/env';
 import { ipInRanges } from '@spy4x/net/ip';
+import { isValidTimeZone } from '@spy4x/time/tz';
 import { DEFAULT_OAUTH_KV_PATH, type OAuthConfig } from './oauth.ts';
 import { TOOL_MODES, type ToolMode } from './tools/index.ts';
 
@@ -30,6 +31,11 @@ export interface Env {
   trustedProxies: string[];
   /** Which tools the server offers, from `CALDAV_MCP_TOOLS`; `all` unless set. */
   tools: ToolMode;
+  /**
+   * The owner's IANA time zone, from `CALDAV_MCP_TIME_ZONE`. Whole days and times written without
+   * a zone are read in it; unset, they are read in the zone of the machine the server runs on.
+   */
+  timeZone?: string;
   /** Set when `PUBLIC_URL`, `OWNER_PASSWORD_HASH` and `AUTH_PEPPER` are all set; see `oauth.ts`. */
   oauth?: OAuthConfig;
 }
@@ -48,8 +54,8 @@ const MIN_PEPPER_LENGTH = 32;
 
 /**
  * Read the configuration once at startup. Blank values count as unset. Throws on a missing
- * required value or on a `PORT`, `LOG_LEVEL`, `TRUSTED_PROXIES`, `ALLOW_BEARER_TOKEN_WITH_OAUTH` or
- * `CALDAV_MCP_TOOLS` it cannot use, naming the variable but never echoing its value.
+ * required value or on a `PORT`, `LOG_LEVEL`, `TRUSTED_PROXIES`, `ALLOW_BEARER_TOKEN_WITH_OAUTH`,
+ * `CALDAV_MCP_TOOLS` or `CALDAV_MCP_TIME_ZONE` it cannot use, naming the variable but never echoing its value.
  */
 export function loadEnv(env: EnvReader = systemEnv): Env {
   // Support both CALDAV_URL and CALDAV_SERVER_URL (homelab convention)
@@ -74,6 +80,7 @@ export function loadEnv(env: EnvReader = systemEnv): Env {
     logLevel: parseLogLevel(optional('LOG_LEVEL') || 'info'),
     trustedProxies: parseCidrList('TRUSTED_PROXIES', optional('TRUSTED_PROXIES')),
     tools: parseToolMode(optional('CALDAV_MCP_TOOLS') || 'all'),
+    timeZone: parseTimeZone(optional('CALDAV_MCP_TIME_ZONE')),
     oauth: parseOAuth(optional),
   };
 }
@@ -159,6 +166,14 @@ function parseToolMode(raw: string): ToolMode {
   const mode = TOOL_MODES.find((m) => m === raw);
   if (!mode) throw new Error(`CALDAV_MCP_TOOLS must be one of: ${TOOL_MODES.join(', ')}`);
   return mode;
+}
+
+function parseTimeZone(raw: string): string | undefined {
+  if (raw === '') return undefined;
+  if (!isValidTimeZone(raw)) {
+    throw new Error('CALDAV_MCP_TIME_ZONE must be an IANA time zone name, like Europe/Berlin');
+  }
+  return raw;
 }
 
 function parseCidrList(name: string, raw: string): string[] {

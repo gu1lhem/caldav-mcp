@@ -3,7 +3,7 @@
 
 import { type Env, loadEnv } from './env.ts';
 import { createCalDavClient } from '@spy4x/caldav';
-import { QueryEngine } from './caldav/query.ts';
+import { type EngineOptions, QueryEngine } from './caldav/query.ts';
 import { type JsonRpcResponse, McpHandler, SUPPORTED_PROTOCOL_VERSIONS } from './mcp.ts';
 import { MCP_PATH, type OAuth, openOAuth } from './oauth.ts';
 import { runGrantsCommand } from './grants.ts';
@@ -39,7 +39,8 @@ async function main(): Promise<void> {
     serverUrl: env.caldavUrl,
     auth: { username: env.caldavUsername, password: env.caldavPassword },
   });
-  const engine = new QueryEngine(client);
+  const engine = new QueryEngine(client, engineOptions(env));
+  log('info', `Time zone: ${engine.zone}`);
 
   const mcp = new McpHandler({ name: 'caldav-mcp', version: VERSION });
   registerAllTools(mcp, engine, env.tools);
@@ -179,6 +180,11 @@ export interface HttpHandlerOptions {
    * a request without one, like Claude's, is not affected.
    */
   allowedOrigins?: readonly string[];
+}
+
+/** The engine options the server runs with: the owner's time zone, when the environment names one. */
+export function engineOptions(env: Pick<Env, 'timeZone'>): EngineOptions {
+  return { zone: env.timeZone };
 }
 
 /** The handler options the HTTP transport runs with, taken from the environment. */

@@ -78,8 +78,8 @@ export function registerEventTools(mcp: ToolRegistry, engine: QueryEngine): void
       reply(
         await engine.queryEvents({
           calendarUrl: optionalString(args, 'calendarUrl'),
-          from: optionalInstant(args, 'dateFrom'),
-          to: optionalInstant(args, 'dateTo'),
+          from: optionalInstant(args, 'dateFrom', engine.zone),
+          to: optionalInstant(args, 'dateTo', engine.zone),
           text: optionalString(args, 'text'),
           limit: optionalInteger(args, 'limit', 1, MAX_LIMIT),
         }),

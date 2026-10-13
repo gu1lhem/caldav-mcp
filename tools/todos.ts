@@ -131,7 +131,7 @@ export function registerTodoTools(mcp: ToolRegistry, engine: QueryEngine): void 
           calendarUrl: optionalString(args, 'calendarUrl'),
           status: todoStatus(args, 'status') ?? undefined,
           text: optionalString(args, 'text'),
-          dueBefore: optionalInstant(args, 'dueBefore'),
+          dueBefore: optionalInstant(args, 'dueBefore', engine.zone),
           priority: range
             ? { min: optionalInteger(range, 'min', 1, 9), max: optionalInteger(range, 'max', 1, 9) }
             : undefined,

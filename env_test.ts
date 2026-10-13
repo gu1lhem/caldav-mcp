@@ -149,6 +149,22 @@ Deno.test('a half-configured OAuth stops startup, naming each missing variable',
   );
 });
 
+Deno.test('CALDAV_MCP_TIME_ZONE is unset by default and accepts an IANA zone', () => {
+  assertEquals(load({}).timeZone, undefined);
+  assertEquals(load({ CALDAV_MCP_TIME_ZONE: '' }).timeZone, undefined);
+  assertEquals(load({ CALDAV_MCP_TIME_ZONE: 'Asia/Bangkok' }).timeZone, 'Asia/Bangkok');
+});
+
+Deno.test('an unknown CALDAV_MCP_TIME_ZONE stops startup', () => {
+  for (const value of ['Mars/Olympus', 'bangkok time']) {
+    assertThrows(
+      () => load({ CALDAV_MCP_TIME_ZONE: value }),
+      Error,
+      'CALDAV_MCP_TIME_ZONE must be an IANA time zone name',
+    );
+  }
+});
+
 Deno.test('PUBLIC_URL must be a bare https origin', () => {
   const bad = [
     'mcp.example.com',

@@ -49,7 +49,8 @@ every field, `includeCompleted: true` for finished tasks too, and `limit` (up to
 - Dates keep their kind: `2026-10-12` (a whole day), `2026-10-12T09:00:00Z` (UTC),
   `2026-10-12T09:00:00` (floating wall-clock time) or `2026-10-12T09:00:00[Asia/Ho_Chi_Minh]`
   (wall-clock time in a zone). Tool arguments accept the same forms, plus an offset such as
-  `2026-10-12T09:00+07:00`, which is stored as UTC.
+  `2026-10-12T09:00+07:00`, which is stored as UTC. A whole day and a floating time are read in
+  `CALDAV_MCP_TIME_ZONE` ([configuration.md](configuration.md)).
 - If one calendar cannot be read, the answer lists it under `failedCalendars` instead of showing
   it as empty. Objects that cannot be parsed are counted under `unreadable`.
 

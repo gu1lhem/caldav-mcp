@@ -276,6 +276,11 @@ export class QueryEngine {
     this.#uid = options.uid ?? (() => crypto.randomUUID());
   }
 
+  /** The IANA zone that date-only and floating values are read in. */
+  get zone(): string {
+    return this.#zone;
+  }
+
   /** The user's calendar homes, discovered once. */
   async #homeUrls(): Promise<EngineResult<string[]>> {
     if (this.#homes) return ok(this.#homes);
