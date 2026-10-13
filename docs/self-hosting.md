@@ -17,7 +17,7 @@ deno compile -A --unstable-kv --output caldav-mcp jsr:@spy4x/caldav-mcp@1
 ```yaml
 services:
   caldav-mcp:
-    build: https://github.com/spy4x/caldav-mcp.git#v1.4.0
+    build: https://github.com/spy4x/caldav-mcp.git#v1.5.0
     container_name: caldav-mcp
     restart: unless-stopped
     environment:
