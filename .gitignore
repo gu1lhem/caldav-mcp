@@ -1,5 +1,4 @@
 caldav-mcp
-deno.lock
 
 # Environment files (secrets never committed)
 .env

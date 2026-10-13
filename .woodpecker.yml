@@ -2,8 +2,11 @@ steps:
   check:
     image: denoland/deno:2.9.7
     commands:
+      # --frozen: fail when deno.lock and deno.jsonc disagree, instead of resolving afresh. The
+      # test run needs its own flag: the tests import modules that `deno install` does not reach.
+      - deno install --frozen
       - deno task check
-      - deno task test
+      - deno task test --frozen
       - deno publish --dry-run
 
   # Guards against an accidental release: a `v*` tag publishes to JSR with the global token, so
