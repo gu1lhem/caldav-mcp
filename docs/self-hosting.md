@@ -33,12 +33,6 @@ services:
       - proxy
 ```
 
-Or pull pre-built image (coming soon):
-
-```bash
-docker pull ghcr.io/spy4x/caldav-mcp:latest
-```
-
 ## Systemd (bare metal)
 
 ```bash
