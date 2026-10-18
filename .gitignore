@@ -8,3 +8,6 @@ caldav-mcp
 # Age encryption key (if added in future)
 .age/
 key.txt
+
+# Docker image the release pipeline builds into the workspace (.woodpecker.yml, step image)
+/image.tar

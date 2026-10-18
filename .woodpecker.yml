@@ -1,6 +1,6 @@
 steps:
   check:
-    image: denoland/deno:2.9.7
+    image: denoland/deno:2.9.7@sha256:fa335acdf6b72106eda2cb6a8cb5f4187e7630e357467489db4b2e7352d5e432
     commands:
       # --frozen: fail when deno.lock and deno.jsonc disagree, instead of resolving afresh. The
       # test run needs its own flag: the tests import modules that `deno install` does not reach.
@@ -9,13 +9,23 @@ steps:
       - deno task test --frozen
       - deno publish --dry-run
 
+  # Builds the Docker image on every pull request and pushes nothing, so a change that breaks the
+  # Dockerfile fails here instead of at the next release. kaniko builds in user space inside an
+  # ordinary container: no Docker daemon, no volume, no privileged mode, no secret.
+  image-build:
+    image: martizih/kaniko:v1.28.5-alpine@sha256:6ba327d49f75147a44e39e8a977e9cde11b483832214b307ccf11f9da360693c
+    when:
+      event: pull_request
+    commands:
+      - /kaniko/executor --context "$$CI_WORKSPACE" --dockerfile Dockerfile --no-push
+
   # Guards against an accidental release: a `v*` tag publishes to JSR with the global token, so
   # this step fails the build unless the tagged commit is already on `main` (reviewed, green CI).
   # It is not access control: Woodpecker runs the tagged commit's own `.woodpecker.yml`, so a tag
   # on a branch that predates this step, or one that removes it, still publishes. A tag build's
   # clone is full but has no `main` ref, which is why the step fetches it.
   on-main:
-    image: alpine/git:2.47.2
+    image: alpine/git:2.47.2@sha256:062a01ad7a0eb17cff382bc5e26086b4d710e56dfdfdf001109a49b6d9bd378c
     when:
       event: tag
       ref: refs/tags/v*
@@ -23,10 +33,28 @@ steps:
       - git fetch --no-tags --depth=2147483647 origin main
       - git merge-base --is-ancestor "$${CI_COMMIT_SHA}" FETCH_HEAD || { echo "Refusing to publish, commit $${CI_COMMIT_SHA} is not on main"; exit 1; }
 
+  # A `v*` tag also publishes the Docker image `antonshubin/caldav-mcp` to Docker Hub, in two steps.
+  # Building and pushing are separate because kaniko runs the Dockerfile's RUN lines (`deno compile`
+  # and every module it downloads) in its own container, where a login would be readable by all of
+  # them. `image` holds no secret and writes the image to a tar file in the workspace; `image-push`
+  # runs only crane, never repository code, and is the one step that gets DOCKERHUB_USERNAME and
+  # DOCKERHUB_TOKEN (the server's global secrets, enabled for the tag event). It runs before the
+  # JSR publish, so a Dockerfile that no longer builds stops the release before anything is out.
+  image:
+    image: martizih/kaniko:v1.28.5-alpine@sha256:6ba327d49f75147a44e39e8a977e9cde11b483832214b307ccf11f9da360693c
+    when:
+      event: tag
+      ref: refs/tags/v*
+    commands:
+      # --destination only names the image inside the tar; --no-push sends nothing anywhere.
+      - /kaniko/executor --context "$$CI_WORKSPACE" --dockerfile Dockerfile
+        --destination "antonshubin/caldav-mcp:$${CI_COMMIT_TAG#v}"
+        --no-push --tar-path "$$CI_WORKSPACE/image.tar"
+
   # Publishes to JSR (`jsr:@spy4x/caldav-mcp`) on a `v*` tag, after `check` passed. The tag must
   # match `version` in deno.jsonc. `$$` stops Woodpecker substituting the variable itself.
   publish:
-    image: denoland/deno:2.9.7
+    image: denoland/deno:2.9.7@sha256:fa335acdf6b72106eda2cb6a8cb5f4187e7630e357467489db4b2e7352d5e432
     when:
       event: tag
       ref: refs/tags/v*
@@ -36,3 +64,35 @@ steps:
     commands:
       - test "$${CI_COMMIT_TAG#v}" = "$(deno eval 'import { parse } from "jsr:@std/jsonc@1"; console.log(parse(Deno.readTextFileSync("deno.jsonc")).version)')"
       - deno publish --token "$${JSR_TOKEN}"
+
+  # Pushes the tar `image` built to Docker Hub as `antonshubin/caldav-mcp:<version>` (the tag
+  # without its `v`) and moves `latest` to it. crane's debug build, because the release builds
+  # have no shell; its shell is /busybox/sh and it has no /bin/sh, so the entrypoint is named here.
+  # The image name and tags come from this file and CI_COMMIT_TAG, never from the workspace, which
+  # the build step could write to. The login stays in this container, outside the workspace.
+  image-push:
+    image: gcr.io/go-containerregistry/crane/debug:v0.22.1@sha256:e78770b31258a3846f878036d9c1f63fbe4c871f9f56990bf77fd95c013e3c1b
+    entrypoint: ["/busybox/sh", "-c", "echo $$CI_SCRIPT | /busybox/base64 -d | /busybox/sh -e"]
+    when:
+      event: tag
+      ref: refs/tags/v*
+    environment:
+      DOCKERHUB_USERNAME:
+        from_secret: DOCKERHUB_USERNAME
+      DOCKERHUB_TOKEN:
+        from_secret: DOCKERHUB_TOKEN
+    commands:
+      - |
+          set -eu
+          IMAGE=antonshubin/caldav-mcp
+          VERSION="$${CI_COMMIT_TAG#v}"
+          export DOCKER_CONFIG=/tmp/docker
+          printf '%s' "$$DOCKERHUB_TOKEN" |
+            crane auth login index.docker.io -u "$$DOCKERHUB_USERNAME" --password-stdin
+          crane push image.tar "$$IMAGE:$$VERSION"
+          # A pre-release tag (v1.2.3-rc.1) is published under its own name only; it never moves
+          # latest.
+          case "$$VERSION" in
+            *-*) ;;
+            *) crane tag "$$IMAGE:$$VERSION" latest ;;
+          esac
