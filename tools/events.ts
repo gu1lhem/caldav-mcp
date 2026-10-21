@@ -1,8 +1,8 @@
 // ── Event tools: query_events, get_event, create_event, update_event, delete_event ──
 
-import { AlarmRelated, type EventPatch } from '@spy4x/time/ical-tasks';
-import type { ToolRegistry } from './index.ts';
-import { DEFAULT_LIMIT, MAX_LIMIT, type QueryEngine } from '../caldav/query.ts';
+import { AlarmRelated, type EventPatch } from '@spy4x/time/ical-tasks'
+import type { ToolRegistry } from './index.ts'
+import { DEFAULT_LIMIT, MAX_LIMIT, type QueryEngine } from '../caldav/query.ts'
 import {
   alarmsSchema,
   type Args,
@@ -16,13 +16,13 @@ import {
   optionalString,
   reply,
   requiredString,
-} from './args.ts';
+} from './args.ts'
 
-const ETAG_NOTE = 'exactly as query_events or get_event returned it, quotes included';
+const ETAG_NOTE = 'exactly as query_events or get_event returned it, quotes included'
 
 function eventFields(nullable: boolean) {
-  const t = (type: string) => (nullable ? [type, 'null'] : type);
-  const clear = nullable ? '; null clears it' : '';
+  const t = (type: string) => (nullable ? [type, 'null'] : type)
+  const clear = nullable ? '; null clears it' : ''
   return {
     summary: { type: 'string', description: 'Title' },
     description: { type: t('string'), description: `Notes${clear}` },
@@ -32,7 +32,7 @@ function eventFields(nullable: boolean) {
     categories: { type: t('array'), items: { type: 'string' }, description: `Tags${clear}` },
     alarms: alarmsSchema('start', nullable),
     rrule: { type: t('string'), description: `Repeat rule, such as FREQ=WEEKLY;BYDAY=TU${clear}` },
-  };
+  }
 }
 
 function readPatch(args: Args): EventPatch {
@@ -45,13 +45,13 @@ function readPatch(args: Args): EventPatch {
     categories: nullableStringList(args, 'categories'),
     rrule: nullableString(args, 'rrule'),
     alarms: nullableAlarms(args, 'alarms', AlarmRelated.Start),
-  };
-  if (patch.summary === null) throw new Error('summary cannot be cleared');
-  if (patch.start === null) throw new Error('start cannot be cleared');
-  for (const key of Object.keys(patch) as (keyof EventPatch)[]) {
-    if (patch[key] === undefined) delete patch[key];
   }
-  return patch;
+  if (patch.summary === null) throw new Error('summary cannot be cleared')
+  if (patch.start === null) throw new Error('start cannot be cleared')
+  for (const key of Object.keys(patch) as (keyof EventPatch)[]) {
+    if (patch[key] === undefined) delete patch[key]
+  }
+  return patch
 }
 
 export function registerEventTools(mcp: ToolRegistry, engine: QueryEngine): void {
@@ -84,7 +84,7 @@ export function registerEventTools(mcp: ToolRegistry, engine: QueryEngine): void
           limit: optionalInteger(args, 'limit', 1, MAX_LIMIT),
         }),
       ),
-  );
+  )
 
   mcp.registerTool(
     {
@@ -97,7 +97,7 @@ export function registerEventTools(mcp: ToolRegistry, engine: QueryEngine): void
       },
     },
     async (args) => reply(await engine.getEvent(requiredString(args, 'url'))),
-  );
+  )
 
   mcp.registerTool(
     {
@@ -114,15 +114,15 @@ export function registerEventTools(mcp: ToolRegistry, engine: QueryEngine): void
       },
     },
     async (args) => {
-      const calendarUrl = requiredString(args, 'calendarUrl');
-      requiredString(args, 'summary');
-      requiredString(args, 'start');
-      requiredString(args, 'end');
+      const calendarUrl = requiredString(args, 'calendarUrl')
+      requiredString(args, 'summary')
+      requiredString(args, 'start')
+      requiredString(args, 'end')
       return reply(
         await engine.createEvent(calendarUrl, readPatch(args), optionalString(args, 'uid')),
-      );
+      )
     },
-  );
+  )
 
   mcp.registerTool(
     {
@@ -149,7 +149,7 @@ export function registerEventTools(mcp: ToolRegistry, engine: QueryEngine): void
           readPatch(args),
         ),
       ),
-  );
+  )
 
   mcp.registerTool(
     {
@@ -165,9 +165,9 @@ export function registerEventTools(mcp: ToolRegistry, engine: QueryEngine): void
       },
     },
     async (args) => {
-      const url = requiredString(args, 'url');
-      const deleted = reply(await engine.deleteObject(url, requiredString(args, 'etag')));
-      return deleted === null ? { success: true, url } : deleted;
+      const url = requiredString(args, 'url')
+      const deleted = reply(await engine.deleteObject(url, requiredString(args, 'etag')))
+      return deleted === null ? { success: true, url } : deleted
     },
-  );
+  )
 }

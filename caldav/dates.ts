@@ -2,13 +2,13 @@
 // A task's date keeps its iCalendar kind (date, floating, UTC, zoned) through a round trip, so a
 // date-only due date never turns into a timed one.
 
-import { IcalDateKind, type IcalDateValue, resolveInstant } from '@spy4x/time/ical';
+import { IcalDateKind, type IcalDateValue, resolveInstant } from '@spy4x/time/ical'
 
-const DAY_MS = 86_400_000;
+const DAY_MS = 86_400_000
 
-const DATE_ONLY = /^(\d{4})-(\d{2})-(\d{2})$/;
+const DATE_ONLY = /^(\d{4})-(\d{2})-(\d{2})$/
 const DATE_TIME =
-  /^(\d{4}-\d{2}-\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?(?:\.\d+)?(Z|[+-]\d{2}:\d{2})?(?:\[([^\]\s]+)\])?$/;
+  /^(\d{4}-\d{2}-\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?(?:\.\d+)?(Z|[+-]\d{2}:\d{2})?(?:\[([^\]\s]+)\])?$/
 
 /**
  * Show a date value as text: `2026-10-12` (date), `2026-10-12T09:00:00Z` (UTC),
@@ -17,23 +17,23 @@ const DATE_TIME =
 export function formatIcalDate(value: IcalDateValue): string {
   switch (value.kind) {
     case IcalDateKind.Date:
-      return value.date;
+      return value.date
     case IcalDateKind.Utc:
-      return `${value.date}T${value.time}Z`;
+      return `${value.date}T${value.time}Z`
     case IcalDateKind.Zoned:
-      return `${value.date}T${value.time}[${value.tzid}]`;
+      return `${value.date}T${value.time}[${value.tzid}]`
     default:
-      return `${value.date}T${value.time}`;
+      return `${value.date}T${value.time}`
   }
 }
 
 function validDate(date: string): boolean {
-  const match = DATE_ONLY.exec(date);
-  if (!match) return false;
-  const [year, month, day] = [Number(match[1]), Number(match[2]), Number(match[3])];
-  const parsed = new Date(Date.UTC(year, month - 1, day));
+  const match = DATE_ONLY.exec(date)
+  if (!match) return false
+  const [year, month, day] = [Number(match[1]), Number(match[2]), Number(match[3])]
+  const parsed = new Date(Date.UTC(year, month - 1, day))
   return parsed.getUTCFullYear() === year && parsed.getUTCMonth() === month - 1 &&
-    parsed.getUTCDate() === day;
+    parsed.getUTCDate() === day
 }
 
 /**
@@ -42,25 +42,25 @@ function validDate(date: string): boolean {
  * `[Zone]`.
  */
 export function parseDateArg(text: string): IcalDateValue | undefined {
-  const trimmed = text.trim();
+  const trimmed = text.trim()
   if (DATE_ONLY.test(trimmed)) {
-    return validDate(trimmed) ? { kind: IcalDateKind.Date, date: trimmed } : undefined;
+    return validDate(trimmed) ? { kind: IcalDateKind.Date, date: trimmed } : undefined
   }
-  const match = DATE_TIME.exec(trimmed);
-  if (!match) return undefined;
-  const [, date, hours, minutes, seconds = '00', offset, zone] = match;
+  const match = DATE_TIME.exec(trimmed)
+  if (!match) return undefined
+  const [, date, hours, minutes, seconds = '00', offset, zone] = match
   if (!validDate(date!) || Number(hours) > 23 || Number(minutes) > 59 || Number(seconds) > 59) {
-    return undefined;
+    return undefined
   }
-  const time = `${hours}:${minutes}:${seconds}`;
-  if (offset && zone) return undefined;
-  if (zone) return { kind: IcalDateKind.Zoned, date: date!, time, tzid: zone };
-  if (offset === 'Z') return { kind: IcalDateKind.Utc, date: date!, time };
-  if (!offset) return { kind: IcalDateKind.Floating, date: date!, time };
-  const instant = new Date(`${date}T${time}${offset}`);
-  if (Number.isNaN(instant.getTime())) return undefined;
-  const iso = instant.toISOString();
-  return { kind: IcalDateKind.Utc, date: iso.slice(0, 10), time: iso.slice(11, 19) };
+  const time = `${hours}:${minutes}:${seconds}`
+  if (offset && zone) return undefined
+  if (zone) return { kind: IcalDateKind.Zoned, date: date!, time, tzid: zone }
+  if (offset === 'Z') return { kind: IcalDateKind.Utc, date: date!, time }
+  if (!offset) return { kind: IcalDateKind.Floating, date: date!, time }
+  const instant = new Date(`${date}T${time}${offset}`)
+  if (Number.isNaN(instant.getTime())) return undefined
+  const iso = instant.toISOString()
+  return { kind: IcalDateKind.Utc, date: iso.slice(0, 10), time: iso.slice(11, 19) }
 }
 
 /**
@@ -68,7 +68,7 @@ export function parseDateArg(text: string): IcalDateValue | undefined {
  * whose TZID is not an IANA zone has no instant.
  */
 export function startInstant(value: IcalDateValue, zone: string): Date | undefined {
-  return resolveInstant(value, { zone });
+  return resolveInstant(value, { zone })
 }
 
 /**
@@ -76,7 +76,7 @@ export function startInstant(value: IcalDateValue, zone: string): Date | undefin
  * otherwise. A task due "2026-10-12" is not overdue until that day is over in `zone`.
  */
 export function dueInstant(value: IcalDateValue, zone: string): Date | undefined {
-  const start = resolveInstant(value, { zone });
-  if (!start || value.kind !== IcalDateKind.Date) return start;
-  return new Date(start.getTime() + DAY_MS);
+  const start = resolveInstant(value, { zone })
+  if (!start || value.kind !== IcalDateKind.Date) return start
+  return new Date(start.getTime() + DAY_MS)
 }

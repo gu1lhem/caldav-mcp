@@ -3,17 +3,17 @@
 // lost or leaked connector can be signed out without deleting oauth.kv. Safe while the server runs:
 // Deno KV lets a second process open the same file (tested in oauth_test.ts).
 
-import type { GrantRecord, OAuthStore } from '@spy4x/server/mcp-oauth';
-import { KvOAuthStore } from '@spy4x/server/mcp-oauth/kv-store';
-import { DEFAULT_OAUTH_KV_PATH } from './oauth.ts';
+import type { GrantRecord, OAuthStore } from '@spy4x/server/mcp-oauth'
+import { KvOAuthStore } from '@spy4x/server/mcp-oauth/kv-store'
+import { DEFAULT_OAUTH_KV_PATH } from './oauth.ts'
 
 /** How to call the command; printed on a wrong call. */
-export const GRANTS_USAGE = 'Usage: caldav-mcp grants list | caldav-mcp grants revoke <grantId>';
+export const GRANTS_USAGE = 'Usage: caldav-mcp grants list | caldav-mcp grants revoke <grantId>'
 
 /** Where the command writes: `out` for results, `err` for errors and usage. */
 export interface GrantsOutput {
-  out(line: string): void;
-  err(line: string): void;
+  out(line: string): void
+  err(line: string): void
 }
 
 /**
@@ -29,30 +29,30 @@ export async function runGrants(
   output: GrantsOutput,
 ): Promise<number> {
   if (!isValidCall(args)) {
-    output.err(GRANTS_USAGE);
-    return 2;
+    output.err(GRANTS_USAGE)
+    return 2
   }
-  const [command, grantId] = args;
+  const [command, grantId] = args
   if (command === 'list') {
-    const grants = await store.listGrants();
-    if (grants.length === 0) output.out('No grants.');
-    for (const grant of grants) output.out(describe(grant));
-    return 0;
+    const grants = await store.listGrants()
+    if (grants.length === 0) output.out('No grants.')
+    for (const grant of grants) output.out(describe(grant))
+    return 0
   }
-  const grant = (await store.listGrants()).find((g) => g.grantId === grantId);
+  const grant = (await store.listGrants()).find((g) => g.grantId === grantId)
   if (!grant) {
-    output.err(`No grant ${grantId}. Run "caldav-mcp grants list" to see the current ones.`);
-    return 1;
+    output.err(`No grant ${grantId}. Run "caldav-mcp grants list" to see the current ones.`)
+    return 1
   }
-  await store.revokeGrant(grant.grantId, grant.expiresAt);
-  output.out(`Revoked ${describe(grant)}`);
-  return 0;
+  await store.revokeGrant(grant.grantId, grant.expiresAt)
+  output.out(`Revoked ${describe(grant)}`)
+  return 0
 }
 
 /** `list` alone, or `revoke` and one non-empty grant id. */
 function isValidCall(args: readonly string[]): boolean {
-  if (args.length === 1) return args[0] === 'list';
-  return args.length === 2 && args[0] === 'revoke' && !!args[1];
+  if (args.length === 1) return args[0] === 'list'
+  return args.length === 2 && args[0] === 'revoke' && !!args[1]
 }
 
 /**
@@ -65,37 +65,37 @@ export async function runGrantsCommand(
   output: GrantsOutput = { out: console.log, err: console.error },
 ): Promise<number> {
   if (!isValidCall(args)) {
-    output.err(GRANTS_USAGE);
-    return 2;
+    output.err(GRANTS_USAGE)
+    return 2
   }
-  let kv: Deno.Kv;
+  let kv: Deno.Kv
   try {
     // Deno KV creates a missing file; refuse instead, so a wrong path is not mistaken for no
     // grants.
-    await Deno.stat(kvPath);
-    kv = await Deno.openKv(kvPath);
+    await Deno.stat(kvPath)
+    kv = await Deno.openKv(kvPath)
   } catch (err) {
-    const reason = err instanceof Error ? err.message : String(err);
-    output.err(`Cannot open the OAuth store at ${kvPath} (OAUTH_KV_PATH): ${reason}`);
-    return 1;
+    const reason = err instanceof Error ? err.message : String(err)
+    output.err(`Cannot open the OAuth store at ${kvPath} (OAUTH_KV_PATH): ${reason}`)
+    return 1
   }
   try {
-    return await runGrants(args, new KvOAuthStore(kv), output);
+    return await runGrants(args, new KvOAuthStore(kv), output)
   } finally {
-    kv.close();
+    kv.close()
   }
 }
 
 function describe(grant: GrantRecord): string {
-  const started = new Date(grant.createdAt).toISOString();
-  const ends = new Date(grant.expiresAt).toISOString();
-  return `${grant.grantId}  ${hostOf(grant.clientId)}  started ${started}  ends ${ends}`;
+  const started = new Date(grant.createdAt).toISOString()
+  const ends = new Date(grant.expiresAt).toISOString()
+  return `${grant.grantId}  ${hostOf(grant.clientId)}  started ${started}  ends ${ends}`
 }
 
 function hostOf(clientId: string): string {
   try {
-    return new URL(clientId).host;
+    return new URL(clientId).host
   } catch {
-    return clientId;
+    return clientId
   }
 }

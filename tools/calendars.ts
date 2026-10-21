@@ -1,10 +1,10 @@
 // ── Calendar tools: list_calendars, make_calendar, delete_calendar ──
 
-import type { ToolRegistry } from './index.ts';
-import type { QueryEngine } from '../caldav/query.ts';
-import { optionalString, reply, requiredString } from './args.ts';
+import type { ToolRegistry } from './index.ts'
+import type { QueryEngine } from '../caldav/query.ts'
+import { optionalString, reply, requiredString } from './args.ts'
 
-const COMPONENTS = ['VEVENT', 'VTODO', 'VJOURNAL'];
+const COMPONENTS = ['VEVENT', 'VTODO', 'VJOURNAL']
 
 export function registerCalendarTools(mcp: ToolRegistry, engine: QueryEngine): void {
   mcp.registerTool(
@@ -14,7 +14,7 @@ export function registerCalendarTools(mcp: ToolRegistry, engine: QueryEngine): v
       inputSchema: { type: 'object', properties: {} },
     },
     async () => reply(await engine.listCalendars()),
-  );
+  )
 
   mcp.registerTool(
     {
@@ -30,10 +30,10 @@ export function registerCalendarTools(mcp: ToolRegistry, engine: QueryEngine): v
       },
     },
     async (args) => {
-      const deleted = reply(await engine.deleteCalendar(requiredString(args, 'url')));
-      return 'error' in deleted ? deleted : { success: true, url: deleted.url };
+      const deleted = reply(await engine.deleteCalendar(requiredString(args, 'url')))
+      return 'error' in deleted ? deleted : { success: true, url: deleted.url }
     },
-  );
+  )
 
   mcp.registerTool(
     {
@@ -54,12 +54,12 @@ export function registerCalendarTools(mcp: ToolRegistry, engine: QueryEngine): v
       },
     },
     async (args) => {
-      const components = args['components'] ?? ['VEVENT', 'VTODO'];
+      const components = args['components'] ?? ['VEVENT', 'VTODO']
       if (
         !Array.isArray(components) || components.length === 0 ||
         !components.every((c) => COMPONENTS.includes(c))
       ) {
-        throw new Error(`components must be a non-empty array of ${COMPONENTS.join(', ')}`);
+        throw new Error(`components must be a non-empty array of ${COMPONENTS.join(', ')}`)
       }
       const made = reply(
         await engine.makeCalendar(
@@ -67,8 +67,8 @@ export function registerCalendarTools(mcp: ToolRegistry, engine: QueryEngine): v
           components,
           optionalString(args, 'color'),
         ),
-      );
-      return 'error' in made ? made : { success: true, ...made };
+      )
+      return 'error' in made ? made : { success: true, ...made }
     },
-  );
+  )
 }

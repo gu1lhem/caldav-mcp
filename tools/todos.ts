@@ -1,8 +1,8 @@
 // ── Todo tools: query_todos, get_todo, create_todo, update_todo, delete_todo ──
 
-import { AlarmRelated } from '@spy4x/time/ical-tasks';
-import type { ToolRegistry } from './index.ts';
-import { DEFAULT_LIMIT, MAX_LIMIT, type QueryEngine, type TodoChange } from '../caldav/query.ts';
+import { AlarmRelated } from '@spy4x/time/ical-tasks'
+import type { ToolRegistry } from './index.ts'
+import { DEFAULT_LIMIT, MAX_LIMIT, type QueryEngine, type TodoChange } from '../caldav/query.ts'
 import {
   alarmsSchema,
   type Args,
@@ -20,14 +20,14 @@ import {
   requiredString,
   TODO_STATUS_ENUM,
   todoStatus,
-} from './args.ts';
+} from './args.ts'
 
-const ETAG_NOTE = 'exactly as query_todos or get_todo returned it, quotes included';
+const ETAG_NOTE = 'exactly as query_todos or get_todo returned it, quotes included'
 
 /** Schema of the fields create_todo and update_todo share; `nullable` lets update clear them. */
 function todoFields(nullable: boolean) {
-  const t = (type: string) => (nullable ? [type, 'null'] : type);
-  const clear = nullable ? '; null clears it' : '';
+  const t = (type: string) => (nullable ? [type, 'null'] : type)
+  const clear = nullable ? '; null clears it' : ''
   return {
     summary: { type: 'string', description: 'Title' },
     description: { type: t('string'), description: `Notes, any length${clear}` },
@@ -61,7 +61,7 @@ function todoFields(nullable: boolean) {
       type: t('integer'),
       description: `Manual order (X-APPLE-SORT-ORDER) that Tasks.org sorts by${clear}`,
     },
-  };
+  }
 }
 
 function readChange(args: Args): TodoChange {
@@ -78,12 +78,12 @@ function readChange(args: Args): TodoChange {
     rrule: nullableString(args, 'rrule'),
     sortOrder: nullableInteger(args, 'sortOrder', -(2 ** 31), 2 ** 31 - 1),
     alarms: nullableAlarms(args, 'alarms', AlarmRelated.End),
-  };
-  if (change.summary === null) throw new Error('summary cannot be cleared');
-  for (const key of Object.keys(change) as (keyof TodoChange)[]) {
-    if (change[key] === undefined) delete change[key];
   }
-  return change;
+  if (change.summary === null) throw new Error('summary cannot be cleared')
+  for (const key of Object.keys(change) as (keyof TodoChange)[]) {
+    if (change[key] === undefined) delete change[key]
+  }
+  return change
 }
 
 export function registerTodoTools(mcp: ToolRegistry, engine: QueryEngine): void {
@@ -121,11 +121,11 @@ export function registerTodoTools(mcp: ToolRegistry, engine: QueryEngine): void 
       },
     },
     async (args) => {
-      const priority = args['priority'];
+      const priority = args['priority']
       if (priority !== undefined && (typeof priority !== 'object' || priority === null)) {
-        throw new Error('priority must be an object with min and max');
+        throw new Error('priority must be an object with min and max')
       }
-      const range = priority as Args | undefined;
+      const range = priority as Args | undefined
       return reply(
         await engine.queryTodos({
           calendarUrl: optionalString(args, 'calendarUrl'),
@@ -139,9 +139,9 @@ export function registerTodoTools(mcp: ToolRegistry, engine: QueryEngine): void 
           detail: optionalBoolean(args, 'detail'),
           limit: optionalInteger(args, 'limit', 1, MAX_LIMIT),
         }),
-      );
+      )
     },
-  );
+  )
 
   mcp.registerTool(
     {
@@ -154,7 +154,7 @@ export function registerTodoTools(mcp: ToolRegistry, engine: QueryEngine): void 
       },
     },
     async (args) => reply(await engine.getTodo(requiredString(args, 'url'))),
-  );
+  )
 
   mcp.registerTool(
     {
@@ -171,13 +171,13 @@ export function registerTodoTools(mcp: ToolRegistry, engine: QueryEngine): void 
       },
     },
     async (args) => {
-      const calendarUrl = requiredString(args, 'calendarUrl');
-      requiredString(args, 'summary');
+      const calendarUrl = requiredString(args, 'calendarUrl')
+      requiredString(args, 'summary')
       return reply(
         await engine.createTodo(calendarUrl, readChange(args), optionalString(args, 'uid')),
-      );
+      )
     },
-  );
+  )
 
   mcp.registerTool(
     {
@@ -205,7 +205,7 @@ export function registerTodoTools(mcp: ToolRegistry, engine: QueryEngine): void 
           readChange(args),
         ),
       ),
-  );
+  )
 
   mcp.registerTool(
     {
@@ -221,9 +221,9 @@ export function registerTodoTools(mcp: ToolRegistry, engine: QueryEngine): void 
       },
     },
     async (args) => {
-      const url = requiredString(args, 'url');
-      const deleted = reply(await engine.deleteObject(url, requiredString(args, 'etag')));
-      return deleted === null ? { success: true, url } : deleted;
+      const url = requiredString(args, 'url')
+      const deleted = reply(await engine.deleteObject(url, requiredString(args, 'etag')))
+      return deleted === null ? { success: true, url } : deleted
     },
-  );
+  )
 }
