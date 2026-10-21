@@ -12,16 +12,15 @@
 [Self-hosting](https://github.com/spy4x/caldav-mcp/blob/main/docs/self-hosting.md) · [Configuration](https://github.com/spy4x/caldav-mcp/blob/main/docs/configuration.md) ·
 [How it works](https://github.com/spy4x/caldav-mcp/blob/main/docs/how-it-works.md) · [FAQ](https://github.com/spy4x/caldav-mcp/blob/main/docs/faq.md)
 
-<img src="docs/screenshots/tool-exchange.png" alt="An example request, &quot;Book a 30-minute call with Jane Doe on Friday at 10:00 UTC, remind me to send her the agenda the day before, and show me what's still open&quot;, followed by four real tool calls and their responses: list_calendars returns the personal and work calendars, create_event adds &quot;Call with Jane Doe&quot; to work, create_todo adds &quot;Send the agenda to Jane&quot; with priority 1, and query_todos returns two open tasks, one of them overdue." width="820">
+<a href="https://antonshubin.com/tools/caldav-mcp"><img src="media/demo/poster.webp" alt="Demo video: an AI assistant connected to a demo calendar through caldav-mcp is asked &quot;What's on my list for today?&quot;, calls query_events and query_todos, lists one meeting and four tasks with one overdue, then moves the overdue task to tomorrow with update_todo. Opens the video page." width="820"></a>
 
 </div>
 
 caldav-mcp is a [Model Context Protocol](https://modelcontextprotocol.io/) server. Connect it to
 Claude Desktop, OpenCode, Cursor, OpenWebUI or any other MCP client, and your assistant can list
 your calendars, find events and tasks, and create, update or delete them on your own CalDAV
-server. The request in the picture is an example. The four tool calls were sent by hand, the way an
-assistant would make them, and every response is what caldav-mcp returned from a local Radicale
-server.
+server. The video replays a real exchange: an assistant with caldav-mcp as its only MCP server,
+on a demo Radicale calendar with made-up tasks.
 
 I wrote it because the CalDAV MCP servers I tried hid tasks, could not search across calendars,
 and pulled in a large npm install. I run it on my own homelab next to my calendar server.

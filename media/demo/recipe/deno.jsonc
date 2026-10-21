@@ -1,0 +1,16 @@
+{
+  // The recipe's own config: Playwright stays out of the server's import map and lockfile.
+  "imports": {
+    "playwright": "npm:playwright@1.63.0"
+  },
+  "lint": {
+    // The skill's encoder pins its jsr: imports inline, so it runs from any recipe as is.
+    "rules": { "exclude": ["no-import-prefix"] }
+  },
+  "fmt": {
+    "lineWidth": 100,
+    "indentWidth": 2,
+    "singleQuote": true,
+    "semiColons": false
+  }
+}

@@ -20,7 +20,11 @@
     // Lists the OAuth grants, or revokes one: `deno task grants list`, `deno task grants revoke <id>`.
     "grants": "deno run -A --unstable-kv main.ts grants",
     // Prints the OWNER_PASSWORD_HASH for a password read from stdin; needs AUTH_PEPPER set.
-    "password:hash": "deno run --allow-env=AUTH_PEPPER @spy4x/server/sign-in/password-hash"
+    "password:hash": "deno run --allow-env=AUTH_PEPPER @spy4x/server/sign-in/password-hash",
+    // Remakes the demo video in media/demo/; `-- --live` first runs a new real exchange.
+    "demo-video": "bash media/demo/recipe/demo-video.sh",
+    // Re-encodes the last raw take after a caption or music change.
+    "demo-video:encode": "deno run -A --config media/demo/recipe/deno.jsonc media/demo/recipe/encode-demo.ts"
   },
   "compilerOptions": {
     "strict": true,

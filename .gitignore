@@ -11,3 +11,6 @@ key.txt
 
 # Docker image the release pipeline builds into the workspace (.woodpecker.yml, step image)
 /image.tar
+
+# Raw takes of the demo video (media/demo/recipe/record.ts); never committed
+/media/demo/.take/
