@@ -460,7 +460,7 @@ export function withSubscriptions(
       return ok([...base.output, ...extra])
     },
 
-    listObjects: async (calendarUrl, listOptions) => {
+    listObjects: (calendarUrl, listOptions) => {
       const calendar = subscribedAt(calendarUrl)
       if (calendar) return listSubscribedObjects(settings, calendar, listOptions)
       return client.listObjects(calendarUrl, listOptions)
@@ -468,25 +468,25 @@ export function withSubscriptions(
 
     getObjects: (calendarUrl, urls) => client.getObjects(calendarUrl, urls),
 
-    getObject: async (url) => {
+    getObject: (url) => {
       const calendar = subscribedParentOf(url)
       if (calendar) return subscribedObject(settings, calendar, `${url}`)
       return client.getObject(url)
     },
 
-    createObject: async (calendarUrl, ics, createOptions) => {
+    createObject: (calendarUrl, ics, createOptions) => {
       const calendar = subscribedAt(calendarUrl)
       if (calendar) return refuse(calendar)
       return client.createObject(calendarUrl, ics, createOptions)
     },
 
-    updateObject: async (url, ics, etag) => {
+    updateObject: (url, ics, etag) => {
       const calendar = subscribedParentOf(url)
       if (calendar) return refuse(calendar)
       return client.updateObject(url, ics, etag)
     },
 
-    deleteObject: async (url, etag) => {
+    deleteObject: (url, etag) => {
       const calendar = subscribedParentOf(url)
       if (calendar) return refuse(calendar)
       return client.deleteObject(url, etag)
@@ -496,7 +496,7 @@ export function withSubscriptions(
 
     updateCalendar: (url, changes) => client.updateCalendar(url, changes),
 
-    deleteCalendar: async (url) => {
+    deleteCalendar: (url) => {
       const calendar = subscribedAt(url)
       if (calendar) return refuse(calendar)
       return client.deleteCalendar(url)
