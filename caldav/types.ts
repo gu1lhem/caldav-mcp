@@ -20,7 +20,7 @@ export interface CalendarInfo {
   components: string[]
   color?: string
   ctag?: string
-  /** Present and true when the calendar is a server subscription to an external feed. */
+  /** Present and true for a subscription: a read-only calendar fed by an external ICS feed. */
   subscribed?: true
 }
 

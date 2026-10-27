@@ -3,8 +3,8 @@
 
 import { type Env, loadEnv } from './env.ts'
 import { createCalDavClient } from '@spy4x/caldav'
-import { withSubscriptions } from './caldav/subscriptions.ts'
 import { type EngineOptions, QueryEngine } from './caldav/query.ts'
+import { withSubscriptions } from './caldav/subscriptions.ts'
 import { type JsonRpcResponse, McpHandler, SUPPORTED_PROTOCOL_VERSIONS } from './mcp.ts'
 import { MCP_PATH, type OAuth, openOAuth } from './oauth.ts'
 import { runGrantsCommand } from './grants.ts'
@@ -36,17 +36,12 @@ async function main(): Promise<void> {
   log('info', `caldav-mcp v${VERSION} starting...`)
   log('info', `CalDAV server: ${env.caldavUrl}`)
 
-  // Initialize. The wrapper adds the server's calendar subscriptions (`cs:subscribed`), which
-  // the library drops: their events are served read-only, from the subscription's `?export`.
+  // Initialize
+  const auth = { username: env.caldavUsername, password: env.caldavPassword }
   const client = withSubscriptions(
-    createCalDavClient({
-      serverUrl: env.caldavUrl,
-      auth: { username: env.caldavUsername, password: env.caldavPassword },
-    }),
-    {
-      serverUrl: env.caldavUrl,
-      auth: { username: env.caldavUsername, password: env.caldavPassword },
-    },
+    createCalDavClient({ serverUrl: env.caldavUrl, auth }),
+    // The subscriptions are asked of the same server, with the same credentials.
+    { serverUrl: env.caldavUrl, auth },
   )
   const engine = new QueryEngine(client, engineOptions(env))
   log('info', `Time zone: ${engine.zone}`)

@@ -601,8 +601,8 @@ export class QueryEngine {
 
   /**
    * Change a task. Only the given fields change; every other line is written back as it was.
-   * `status: Completed` completes the task like Tasks.org: a repeating one moves to its next
-   * date and stays open. Setting an open status on a completed task reopens it.
+   * `status: Completed` completes the task like Tasks.org: a repeating one moves to its
+   * next date and stays open. Setting an open status on a completed task reopens it.
    */
   async updateTodo(
     url: string,
