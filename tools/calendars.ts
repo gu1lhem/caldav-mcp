@@ -11,7 +11,7 @@ export function registerCalendarTools(mcp: ToolRegistry, engine: QueryEngine): v
     {
       name: 'list_calendars',
       description:
-        'List the calendars with the components they hold (empty means any), colors and ctags. ' +
+        'List the calendars with the components they hold (empty means any) and colors. ' +
         'A calendar marked subscribed is a read-only subscription to an external feed',
       inputSchema: { type: 'object', properties: {} },
     },

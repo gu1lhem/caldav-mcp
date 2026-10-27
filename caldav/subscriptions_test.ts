@@ -107,7 +107,7 @@ function fakeClient(): CalDavClient & { calls: string[] } {
     },
     listObjects: () => {
       calls.push('listObjects')
-      return Promise.resolve({
+    return Promise.resolve({
         success: true as const,
         output: [] as CalDavObject[],
         error: null,
@@ -118,10 +118,10 @@ function fakeClient(): CalDavClient & { calls: string[] } {
     createObject: () => {
       calls.push('createObject')
       return Promise.resolve({
-        success: true as const,
-        output: { url: `${REAL}made.ics`, etag: '"1"' },
-        error: null,
-      })
+          success: true as const,
+          output: { url: `${REAL}made.ics`, etag: '"1"' },
+          error: null,
+        })
     },
     updateObject: refused as never,
     deleteObject: refused as never,
@@ -227,6 +227,56 @@ Deno.test('writes to a subscription are refused as read-only', async () => {
     assertEquals(refused.error.code, CalDavErrorCode.InvalidArgument)
     assertStringIncludes(refused.error.message, 'read-only')
   }
+})
+
+Deno.test('a component whose UID cannot name a member is skipped, not thrown', async () => {
+  const { client } = wrapped({
+    export: () =>
+      new Response(
+        [
+          'BEGIN:VCALENDAR',
+          'VERSION:2.0',
+          'BEGIN:VEVENT',
+          'UID:..',
+          'DTSTART:20270301T090000Z',
+          'END:VEVENT',
+          'BEGIN:VEVENT',
+          'UID:ok-1',
+          'DTSTART:20270301T090000Z',
+          'END:VEVENT',
+          'END:VCALENDAR',
+          '',
+        ].join('\r\n'),
+        { status: 200 },
+      ),
+  })
+  const objects = await client.listObjects(FEED, { component: 'VEVENT' })
+  assertEquals(objects.success, true)
+  if (!objects.success) return
+  assertEquals(objects.output.length, 1)
+  assertEquals(objects.output[0]?.url, `${FEED}ok-1.ics`)
+})
+
+Deno.test('getObject of a malformed address fails InvalidArgument, not by throwing', async () => {
+  const { client } = wrapped()
+  const got = await client.getObject(`${FEED}%zz.ics`)
+  assertEquals(got.success, false)
+  if (got.success) return
+  assertEquals(got.error.code, CalDavErrorCode.InvalidArgument)
+})
+
+Deno.test('an http: serverUrl is refused before any request', () => {
+  let threw = false
+  try {
+    withSubscriptions(fakeClient(), {
+      serverUrl: 'http://cal.example.com',
+      auth: { username: 'user', password: 'secret' },
+      fetch: fakeFetch(),
+    })
+  } catch {
+    threw = true
+  }
+  assertEquals(threw, true)
 })
 
 Deno.test('a real calendar still goes to the wrapped client', async () => {

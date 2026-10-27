@@ -371,9 +371,10 @@ async function listSubscribedObjects(
   const objects: CalDavObject[] = []
   for (const child of root.output.components) {
     if (child.name.toUpperCase() !== component) continue
-    // Without a UID there is no address to read the object back at, so nothing to list.
+    // Without a UID there is no address to read the object back at, and `childUrl` refuses the
+    // names that cannot name a member, so both are skipped instead of thrown.
     const uid = getProperty(child, 'UID')?.value
-    if (!uid) continue
+    if (!uid || uid === '.' || uid === '..') continue
     if (options.timeRange && !overlaps(root.output, child, options.timeRange)) continue
     objects.push({
       url: childUrl(calendar.url, `${uid}.ics`).href,
@@ -390,8 +391,13 @@ async function subscribedObject(
   calendar: SubscribedCalendar,
   url: string,
 ): Promise<CalDavResult<CalDavObject>> {
-  const name = decodeURIComponent(new URL(url).pathname.split('/').at(-1) ?? '')
-  const uid = name.endsWith('.ics') ? name.slice(0, -4) : name
+  let uid: string
+  try {
+    const name = decodeURIComponent(new URL(url).pathname.split('/').at(-1) ?? '')
+    uid = name.endsWith('.ics') ? name.slice(0, -4) : name
+  } catch {
+    return fail(CalDavErrorCode.InvalidArgument, `${url} is not a valid object address`)
+  }
   const root = await parsedExport(settings, calendar.url)
   if (!root.success) return root
   const match = root.output.components.find((child) =>
