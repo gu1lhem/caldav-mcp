@@ -38,12 +38,14 @@ async function main(): Promise<void> {
 
   // Initialize
   const auth = { username: env.caldavUsername, password: env.caldavPassword }
+  const options = engineOptions(env)
   const client = withSubscriptions(
     createCalDavClient({ serverUrl: env.caldavUrl, auth }),
-    // The subscriptions are asked of the same server, with the same credentials.
-    { serverUrl: env.caldavUrl, auth },
+    // The subscriptions are asked of the same server, with the same credentials, and their
+    // whole-day and floating dates are read in the zone the engine reads them in.
+    { serverUrl: env.caldavUrl, auth, zone: options.zone },
   )
-  const engine = new QueryEngine(client, engineOptions(env))
+  const engine = new QueryEngine(client, options)
   log('info', `Time zone: ${engine.zone}`)
 
   const mcp = new McpHandler({ name: 'caldav-mcp', version: VERSION })

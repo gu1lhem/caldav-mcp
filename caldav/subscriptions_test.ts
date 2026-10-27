@@ -194,6 +194,42 @@ Deno.test('listObjects filters a subscription by the time range', async () => {
   assertEquals(objects.output[0]?.url, `${FEED}future-1.ics`)
 })
 
+Deno.test('listObjects filters whole-day events of a subscription by the time range', async () => {
+  const { client } = wrapped({
+    export: () =>
+      new Response(
+        [
+          'BEGIN:VCALENDAR',
+          'VERSION:2.0',
+          'BEGIN:VEVENT',
+          'UID:past-day',
+          'DTSTART;VALUE=DATE:20260203',
+          'DTEND;VALUE=DATE:20260204',
+          'SUMMARY:Past day',
+          'END:VEVENT',
+          'BEGIN:VEVENT',
+          'UID:future-day',
+          'DTSTART;VALUE=DATE:20270301',
+          'DTEND;VALUE=DATE:20270302',
+          'SUMMARY:Future day',
+          'END:VEVENT',
+          'END:VCALENDAR',
+          '',
+        ].join('\r\n'),
+        { status: 200 },
+      ),
+  })
+  await client.listCalendars(HOME)
+  const objects = await client.listObjects(FEED, {
+    component: 'VEVENT',
+    timeRange: { start: new Date('2027-01-01T00:00:00Z') },
+  })
+  assertEquals(objects.success, true)
+  if (!objects.success) return
+  assertEquals(objects.output.length, 1)
+  assertEquals(objects.output[0]?.url, `${FEED}future-day.ics`)
+})
+
 Deno.test('getObject reads a virtual object of a subscription by its UID', async () => {
   const { client } = wrapped()
   await client.listCalendars(HOME)
