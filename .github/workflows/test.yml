@@ -1,0 +1,20 @@
+name: test
+
+# Temporary GitHub Actions mirror of the Woodpecker `check` step, so the fork can run
+# the suite before a pull request. Not intended for the pull request itself.
+on:
+  push:
+    branches: [subscriptions-ci]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: '2.9.7'
+      - run: deno install --frozen
+      - run: deno task check
+      - run: deno task test --frozen
+      - run: deno publish --dry-run
