@@ -75,14 +75,14 @@ function fakeFetch(handlers: {
   propfind?: () => Response
   export?: () => Response
 } = {}): typeof fetch {
-  return (input: RequestInfo | URL, init?: RequestInit) => {
+  return (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
     const url = new URL(`${input}`)
     const method = init?.method ?? 'GET'
     if (method === 'PROPFIND') {
-      return handlers.propfind?.() ?? new Response(LISTING, { status: 207 })
+      return Promise.resolve(handlers.propfind?.() ?? new Response(LISTING, { status: 207 }))
     }
     if (url.search === '?export') {
-      return handlers.export?.() ?? new Response(EXPORT, { status: 200 })
+      return Promise.resolve(handlers.export?.() ?? new Response(EXPORT, { status: 200 }))
     }
     throw new Error(`unexpected request: ${method} ${url}`)
   ) as typeof fetch
