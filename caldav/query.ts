@@ -42,6 +42,7 @@ import {
   TodoStatus,
 } from '@spy4x/time/ical-tasks'
 import { dueInstant, formatIcalDate, startInstant } from './dates.ts'
+import { isSubscribed } from './subscriptions.ts'
 import type {
   CalendarInfo,
   EngineError,
@@ -356,6 +357,7 @@ export class QueryEngine {
         components: c.components,
         color: c.color,
         ctag: c.ctag,
+        subscribed: isSubscribed(c) ? true : undefined,
       })
     ))
   }
@@ -599,8 +601,8 @@ export class QueryEngine {
 
   /**
    * Change a task. Only the given fields change; every other line is written back as it was.
-   * `status: Completed` completes the task like Tasks.org: a repeating one moves to its next
-   * date and stays open. Setting an open status on a completed task reopens it.
+   * `status: Completed` completes the task like Tasks.org: a repeating one moves to its
+   * next date and stays open. Setting an open status on a completed task reopens it.
    */
   async updateTodo(
     url: string,
