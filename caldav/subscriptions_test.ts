@@ -1,4 +1,4 @@
-// ── Calendar subscriptions: the wrapper of `subscriptions.ts` against a fake server ──
+// ââ Calendar subscriptions: the wrapper of `subscriptions.ts` against a fake server ââ
 
 import {
   CalDavErrorCode,
@@ -155,7 +155,7 @@ Deno.test('listCalendars merges the subscriptions of the home, marked subscribed
   assertEquals(isSubscribed(listed.output[0]!), false)
 })
 
-Deno.test("listCalendars keeps the library's list when the subscription listing fails", async () => {
+Deno.test("listCalendars keeps the library's list when the listing fails", async () => {
   const { client } = wrapped({ propfind: () => new Response('no', { status: 500 }) })
   const listed = await client.listCalendars(HOME)
   assertEquals(listed.success, true)

@@ -1,4 +1,4 @@
-// ── Calendar subscriptions (`cs:subscribed`) ──
+// ââ Calendar subscriptions (`cs:subscribed`) ââ
 // Nextcloud and other calendar servers let a user subscribe to an external ICS feed. The
 // subscription appears in the calendar home as a collection marked `cs:subscribed`, which
 // `@spy4x/caldav`'s `listCalendars` drops: it recognises `caldav:calendar` collections only.
@@ -432,14 +432,14 @@ export function withSubscriptions(
       return undefined
     }
   }
-  const refuse = <T>(calendar: SubscribedCalendar): Promise<CalDavResult<T>> =>
-    Promise.resolve(
-      fail(
-        CalDavErrorCode.InvalidArgument,
-        `${calendar.displayName} is a calendar subscription, which is read-only; ` +
-          "edit it in the server's calendar app instead",
-      ),
+  const refusal = (calendar: SubscribedCalendar): CalDavResult<never> =>
+    fail(
+      CalDavErrorCode.InvalidArgument,
+      `${calendar.displayName} is a calendar subscription, which is read-only; ` +
+        "edit it in the server's calendar app instead",
     )
+  const refuse = <T>(calendar: SubscribedCalendar): Promise<CalDavResult<T>> =>
+    Promise.resolve(refusal(calendar))
 
   return {
     discover: () => client.discover(),
