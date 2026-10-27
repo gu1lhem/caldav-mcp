@@ -78,6 +78,8 @@ export interface SubscriptionOptions {
   maxResponseBytes?: number
   /** Time budget of one subscription request, redirects and body reads included, in ms. */
   timeoutMs?: number
+  /** IANA zone that whole-day and floating values are read in. Default: the host's zone. */
+  zone?: string
 }
 
 /** A subscription's checked options, with the defaults filled in. */
@@ -87,6 +89,7 @@ interface Settings {
   fetch: NonNullable<SubscriptionOptions['fetch']>
   maxBytes: number
   timeoutMs: number
+  zone: string
 }
 
 const DEFAULT_TIMEOUT_MS = 30_000
@@ -121,6 +124,7 @@ function settingsOf(options: SubscriptionOptions): Settings {
     fetch: options.fetch ?? ((input, init) => fetch(input, init)),
     maxBytes: options.maxResponseBytes ?? DEFAULT_MAX_BYTES,
     timeoutMs: options.timeoutMs ?? DEFAULT_TIMEOUT_MS,
+    zone: options.zone ?? Intl.DateTimeFormat().resolvedOptions().timeZone,
   }
 }
 
@@ -337,18 +341,20 @@ function objectDoc(root: IcalComponent, component: IcalComponent): string {
 
 /**
  * Whether `component` overlaps the range the caller asked for. Dates resolve as the engine
- * reads them elsewhere: through the zone a value names when it names one, UTC
- * otherwise. A component whose dates cannot be read is kept: the engine reports it as
- * unreadable, and a filter must never silently drop an event.
+ * reads them elsewhere: through the zone a value names when it names one, through the
+ * settings' zone when it is whole-day or floating, UTC otherwise. A component whose dates
+ * cannot be read is kept: the engine reports it as unreadable, and a filter must never
+ * silently drop an event.
  */
 function overlaps(
   component: IcalComponent,
   timeRange: { start?: Date; end?: Date },
+  zone: string,
 ): boolean {
   const instant = (name: string): Date | undefined => {
     const property = getProperty(component, name)
     const value = property && readDate(property)
-    return value && resolveInstant(value)
+    return value && resolveInstant(value, { zone })
   }
   const start = instant('DTSTART')
   const end = instant('DTEND')
@@ -374,7 +380,7 @@ async function listSubscribedObjects(
     // names that cannot name a member, so both are skipped instead of thrown.
     const uid = getProperty(child, 'UID')?.value
     if (!uid || uid === '.' || uid === '..') continue
-    if (options.timeRange && !overlaps(child, options.timeRange)) continue
+    if (options.timeRange && !overlaps(child, options.timeRange, settings.zone)) continue
     objects.push({
       url: childUrl(calendar.url, `${uid}.ics`).href,
       etag: null,
