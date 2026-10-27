@@ -42,6 +42,7 @@ import {
   TodoStatus,
 } from '@spy4x/time/ical-tasks'
 import { dueInstant, formatIcalDate, startInstant } from './dates.ts'
+import { isSubscribed } from './subscriptions.ts'
 import type {
   CalendarInfo,
   EngineError,
@@ -356,6 +357,7 @@ export class QueryEngine {
         components: c.components,
         color: c.color,
         ctag: c.ctag,
+        subscribed: isSubscribed(c) ? true : undefined,
       })
     ))
   }
