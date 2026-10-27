@@ -20,8 +20,8 @@
 
 import {
   type CalDavCalendar,
-  CalDavErrorCode,
   type CalDavClient,
+  CalDavErrorCode,
   type CalDavObject,
   type CalDavResult,
   type ListObjectsOptions,
@@ -31,8 +31,8 @@ import {
   CALDAV_NS,
   CALENDARSERVER_NS,
   childElements,
-  type DavResponse,
   DAV_NS,
+  type DavResponse,
   getProp,
   getPropText,
   parseMultistatus,
@@ -45,7 +45,7 @@ import {
   PayloadTooLargeError,
   readBoundedText,
 } from '@spy4x/net/bounded-body'
-import { encodeBase64 } from 'std/encoding/base64.ts'
+import { encodeBase64 } from 'jsr:@std/encoding@1/base64'
 import {
   getProperty,
   type IcalComponent,
@@ -337,19 +337,18 @@ function objectDoc(root: IcalComponent, component: IcalComponent): string {
 
 /**
  * Whether `component` overlaps the range the caller asked for. Dates resolve as the engine
- * reads them elsewhere: through the export's own `VTIMEZONE`s when a value is in one, UTC
+ * reads them elsewhere: through the zone a value names when it names one, UTC
  * otherwise. A component whose dates cannot be read is kept: the engine reports it as
  * unreadable, and a filter must never silently drop an event.
  */
 function overlaps(
-  root: IcalComponent,
   component: IcalComponent,
   timeRange: { start?: Date; end?: Date },
 ): boolean {
   const instant = (name: string): Date | undefined => {
     const property = getProperty(component, name)
     const value = property && readDate(property)
-    return value && resolveInstant(value, { root })
+    return value && resolveInstant(value)
   }
   const start = instant('DTSTART')
   const end = instant('DTEND')
@@ -375,7 +374,7 @@ async function listSubscribedObjects(
     // names that cannot name a member, so both are skipped instead of thrown.
     const uid = getProperty(child, 'UID')?.value
     if (!uid || uid === '.' || uid === '..') continue
-    if (options.timeRange && !overlaps(root.output, child, options.timeRange)) continue
+    if (options.timeRange && !overlaps(child, options.timeRange)) continue
     objects.push({
       url: childUrl(calendar.url, `${uid}.ics`).href,
       etag: null,
@@ -400,9 +399,7 @@ async function subscribedObject(
   }
   const root = await parsedExport(settings, calendar.url)
   if (!root.success) return root
-  const match = root.output.components.find((child) =>
-    getProperty(child, 'UID')?.value === uid
-  )
+  const match = root.output.components.find((child) => getProperty(child, 'UID')?.value === uid)
   if (!match) return fail(CalDavErrorCode.NotFound, `${url} is not in the subscription's export`)
   return ok({ url, etag: null, data: objectDoc(root.output, match) })
 }
@@ -503,7 +500,5 @@ export function withSubscriptions(
       if (calendar) return refuse(calendar)
       return client.deleteCalendar(url)
     },
-
-    getPrivileges: client.getPrivileges ? (url) => client.getPrivileges!(url) : undefined,
   }
 }
