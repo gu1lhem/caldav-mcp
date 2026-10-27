@@ -1,9 +1,9 @@
-// ââ Calendar subscriptions: the wrapper of `subscriptions.ts` against a fake server ââ
+// ── Calendar subscriptions: the wrapper of `subscriptions.ts` against a fake server ──
 
 import {
-  CalDavErrorCode,
   type CalDavCalendar,
   type CalDavClient,
+  CalDavErrorCode,
   type CalDavObject,
 } from '@spy4x/caldav'
 import { parseIcal } from '@spy4x/time/ical'
@@ -85,7 +85,7 @@ function fakeFetch(handlers: {
       return Promise.resolve(handlers.export?.() ?? new Response(EXPORT, { status: 200 }))
     }
     throw new Error(`unexpected request: ${method} ${url}`)
-  ) as typeof fetch
+  }
 }
 
 /** A base client that lists one real calendar and refuses to be called for a subscription. */
@@ -166,6 +166,7 @@ Deno.test("listCalendars keeps the library's list when the listing fails", async
 
 Deno.test('listObjects splits the export of a subscription into virtual objects', async () => {
   const { client } = wrapped()
+  await client.listCalendars(HOME)
   const objects = await client.listObjects(FEED, { component: 'VEVENT' })
   assertEquals(objects.success, true)
   if (!objects.success) return
@@ -175,12 +176,14 @@ Deno.test('listObjects splits the export of a subscription into virtual objects'
   assertEquals(first.etag, null)
   const parsed = parseIcal(first.data)
   assertEquals(parsed.success, true)
+  if (!parsed.success) return
   assertEquals(parsed.output.name, 'VCALENDAR')
   assertEquals(parsed.output.components[0]?.name, 'VEVENT')
 })
 
 Deno.test('listObjects filters a subscription by the time range', async () => {
   const { client } = wrapped()
+  await client.listCalendars(HOME)
   const objects = await client.listObjects(FEED, {
     component: 'VEVENT',
     timeRange: { start: new Date('2027-01-01T00:00:00Z') },
@@ -193,6 +196,7 @@ Deno.test('listObjects filters a subscription by the time range', async () => {
 
 Deno.test('getObject reads a virtual object of a subscription by its UID', async () => {
   const { client } = wrapped()
+  await client.listCalendars(HOME)
   const got = await client.getObject(`${FEED}future-1.ics`)
   assertEquals(got.success, true)
   if (!got.success) return
@@ -200,12 +204,14 @@ Deno.test('getObject reads a virtual object of a subscription by its UID', async
   assertEquals(got.output.etag, null)
   const parsed = parseIcal(got.output.data)
   assertEquals(parsed.success, true)
+  if (!parsed.success) return
   const summary = parsed.output.components[0]?.properties.find((p) => p.name === 'SUMMARY')
   assertEquals(summary?.value, 'Future event')
 })
 
 Deno.test('getObject of an unknown UID of a subscription fails NotFound', async () => {
   const { client } = wrapped()
+  await client.listCalendars(HOME)
   const got = await client.getObject(`${FEED}unknown.ics`)
   assertEquals(got.success, false)
   if (got.success) return
@@ -250,6 +256,7 @@ Deno.test('a component whose UID cannot name a member is skipped, not thrown', a
         { status: 200 },
       ),
   })
+  await client.listCalendars(HOME)
   const objects = await client.listObjects(FEED, { component: 'VEVENT' })
   assertEquals(objects.success, true)
   if (!objects.success) return
@@ -259,6 +266,7 @@ Deno.test('a component whose UID cannot name a member is skipped, not thrown', a
 
 Deno.test('getObject of a malformed address fails InvalidArgument, not by throwing', async () => {
   const { client } = wrapped()
+  await client.listCalendars(HOME)
   const got = await client.getObject(`${FEED}%zz.ics`)
   assertEquals(got.success, false)
   if (got.success) return
