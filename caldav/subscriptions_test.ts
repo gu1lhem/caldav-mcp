@@ -75,7 +75,7 @@ function fakeFetch(handlers: {
   propfind?: () => Response
   export?: () => Response
 } = {}): typeof fetch {
-  return (async (input: RequestInfo | URL, init?: RequestInit) => {
+  return (input: RequestInfo | URL, init?: RequestInit) => {
     const url = new URL(`${input}`)
     const method = init?.method ?? 'GET'
     if (method === 'PROPFIND') {
@@ -85,7 +85,7 @@ function fakeFetch(handlers: {
       return handlers.export?.() ?? new Response(EXPORT, { status: 200 })
     }
     throw new Error(`unexpected request: ${method} ${url}`)
-  }) as typeof fetch
+  ) as typeof fetch
 }
 
 /** A base client that lists one real calendar and refuses to be called for a subscription. */
