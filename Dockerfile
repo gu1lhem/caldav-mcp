@@ -7,8 +7,8 @@ COPY . .
 # Compile to static binary
 # --unstable-kv: the OAuth store is Deno KV.
 # --frozen: the build fails when deno.lock does not match deno.jsonc, instead of resolving afresh.
+# No --target: the binary matches the architecture of the host that builds it.
 RUN deno compile -A --unstable-kv --frozen \
-  --target x86_64-unknown-linux-gnu \
   --output /tmp/caldav-mcp \
   main.ts
 
