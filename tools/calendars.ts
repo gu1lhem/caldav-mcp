@@ -10,7 +10,9 @@ export function registerCalendarTools(mcp: ToolRegistry, engine: QueryEngine): v
   mcp.registerTool(
     {
       name: 'list_calendars',
-      description: 'List the calendars with the components they hold (empty means any) and colors',
+      description:
+        'List the calendars with the components they hold (empty means any) and colors. ' +
+        'A calendar marked subscribed is a read-only subscription to an external feed',
       inputSchema: { type: 'object', properties: {} },
     },
     async () => reply(await engine.listCalendars()),
