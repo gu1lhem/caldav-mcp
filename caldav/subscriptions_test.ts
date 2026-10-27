@@ -107,7 +107,7 @@ function fakeClient(): CalDavClient & { calls: string[] } {
     },
     listObjects: () => {
       calls.push('listObjects')
-    return Promise.resolve({
+      return Promise.resolve({
         success: true as const,
         output: [] as CalDavObject[],
         error: null,
@@ -118,10 +118,10 @@ function fakeClient(): CalDavClient & { calls: string[] } {
     createObject: () => {
       calls.push('createObject')
       return Promise.resolve({
-          success: true as const,
-          output: { url: `${REAL}made.ics`, etag: '"1"' },
-          error: null,
-        })
+        success: true as const,
+        output: { url: `${REAL}made.ics`, etag: '"1"' },
+        error: null,
+      })
     },
     updateObject: refused as never,
     deleteObject: refused as never,
