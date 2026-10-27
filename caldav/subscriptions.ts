@@ -432,11 +432,13 @@ export function withSubscriptions(
       return undefined
     }
   }
-  const refuse = <T>(calendar: SubscribedCalendar): CalDavResult<T> =>
-    fail(
-      CalDavErrorCode.InvalidArgument,
-      `${calendar.displayName} is a calendar subscription, which is read-only; ` +
-        "edit it in the server's calendar app instead",
+  const refuse = <T>(calendar: SubscribedCalendar): Promise<CalDavResult<T>> =>
+    Promise.resolve(
+      fail(
+        CalDavErrorCode.InvalidArgument,
+        `${calendar.displayName} is a calendar subscription, which is read-only; ` +
+          "edit it in the server's calendar app instead",
+      ),
     )
 
   return {
