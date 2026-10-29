@@ -177,4 +177,3 @@ export function registerEventTools(mcp: ToolRegistry, engine: QueryEngine): void
     },
   )
 }
-
