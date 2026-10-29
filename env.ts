@@ -4,6 +4,7 @@ import { type EnvReader, readEnvVar, systemEnv } from '@spy4x/server/config/env'
 import { ipInRanges } from '@spy4x/net/ip'
 import { isValidTimeZone } from '@spy4x/time/tz'
 import { DEFAULT_OAUTH_KV_PATH, type OAuthConfig } from './oauth.ts'
+import { DEFAULT_LISTS_PATH } from './lists.ts'
 import { TOOL_MODES, type ToolMode } from './tools/index.ts'
 
 const LOG_LEVELS = ['debug', 'info', 'warn', 'error'] as const
@@ -36,6 +37,11 @@ export interface Env {
    * a zone are read in it; unset, they are read in the zone of the machine the server runs on.
    */
   timeZone?: string
+  /**
+   * Where the named calendar lists live, from `CALDAV_LISTS_PATH`. The file may not exist yet;
+   * the `caldav-mcp lists` CLI creates it. Default: `/data/lists.json`.
+   */
+  listsPath: string
   /** Set when `PUBLIC_URL`, `OWNER_PASSWORD_HASH` and `AUTH_PEPPER` are all set; see `oauth.ts`. */
   oauth?: OAuthConfig
 }
@@ -81,6 +87,7 @@ export function loadEnv(env: EnvReader = systemEnv): Env {
     trustedProxies: parseCidrList('TRUSTED_PROXIES', optional('TRUSTED_PROXIES')),
     tools: parseToolMode(optional('CALDAV_MCP_TOOLS') || 'all'),
     timeZone: parseTimeZone(optional('CALDAV_MCP_TIME_ZONE')),
+    listsPath: optional('CALDAV_LISTS_PATH') || DEFAULT_LISTS_PATH,
     oauth: parseOAuth(optional),
   }
 }
@@ -186,3 +193,4 @@ function parseCidrList(name: string, raw: string): string[] {
   }
   return ranges
 }
+
