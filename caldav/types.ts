@@ -22,6 +22,16 @@ export interface CalendarInfo {
   ctag?: string
 }
 
+/** Named groups of calendar URLs, kept in the lists file the `caldav-mcp lists` CLI edits. */
+export type CalendarLists = Record<string, string[]>
+
+/** One named list, as the `list_lists` tool shows it. */
+export interface ListInfo {
+  name: string
+  /** The members in the order of the list; a null displayName is a calendar no longer there. */
+  calendars: { url: string; displayName: string | null }[]
+}
+
 /** One task in a `query_todos` list. */
 export interface TodoSummary {
   url: string
