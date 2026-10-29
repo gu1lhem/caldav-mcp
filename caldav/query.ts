@@ -383,13 +383,15 @@ export class QueryEngine {
     if (!lists.success) return lists
     const calendars = await this.#calendars()
     if (!calendars.success) return calendars
-    return ok(Object.entries(lists.output).map(([name, urls]) => ({
-      name,
-      calendars: urls.map((url) => ({
-        url,
-        displayName: calendars.output.find((c) => sameResource(c.url, url))?.displayName ?? null,
+    return ok(
+      Object.entries(lists.output).map(([name, urls]) => ({
+        name,
+        calendars: urls.map((url) => ({
+          url,
+          displayName: calendars.output.find((c) => sameResource(c.url, url))?.displayName ?? null,
+        })),
       })),
-    })))
+    )
   }
 
   /** The listed calendar at `url`; anything else is refused, never guessed. */
@@ -444,7 +446,10 @@ export class QueryEngine {
     if (!lists.success) return lists
     const urls = lists.output[list]
     if (!urls) {
-      return fail('UnknownList', `${list} is not a calendar list; list_lists shows the current ones`)
+      return fail(
+        'UnknownList',
+        `${list} is not a calendar list; list_lists shows the current ones`,
+      )
     }
     const calendars = await this.#calendars()
     if (!calendars.success) return calendars
@@ -826,4 +831,3 @@ export class QueryEngine {
     return deleted.success ? ok({ url: calendar.output.url }) : caldavFail(deleted)
   }
 }
-
