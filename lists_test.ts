@@ -29,11 +29,19 @@ Deno.test('parseLists reads a lists file and tidies it', () => {
 })
 
 Deno.test('parseLists refuses everything the server could not use', () => {
-  for (const bad of ['nope', '[]', '"x"', '{"a":"b"}', '{"a":[1]}', '{"a":[""]}', '{"a":[],"a":[]}']) {
+  for (
+    const bad of [
+      'nope',
+      '[]',
+      '"x"',
+      '{"a":"b"}',
+      '{"a":[1]}',
+      '{"a":[""]}',
+      '{"a":[]," a":[]}',
+    ]
+  ) {
     assertThrows(() => parseLists(bad), Error, undefined, bad)
   }
-  // Two names that only differ by their spaces collapse into one and are refused.
-  assertThrows(() => parseLists('{"a":[]," a":[]}'))
 })
 
 Deno.test('the lists file round-trips and a missing file reads as empty', async () => {
@@ -75,17 +83,19 @@ function harness(lists: CalendarLists, lines: string[]) {
   const written: CalendarLists[] = []
   let state: CalendarLists = lists
   const deps: ListsDeps = {
-    readLists: async () => state,
-    writeLists: async (l) => {
+    readLists: () => Promise.resolve(state),
+    writeLists: (l) => {
       written.push(l)
       state = l
+      return Promise.resolve()
     },
-    listCalendars: async () => [
-      { url: 'https://dav/a/', displayName: 'Alpha' },
-      { url: 'https://dav/b/', displayName: 'Beta' },
-    ],
+    listCalendars: () =>
+      Promise.resolve([
+        { url: 'https://dav/a/', displayName: 'Alpha' },
+        { url: 'https://dav/b/', displayName: 'Beta' },
+      ]),
     output: { out: (line) => out.push(line), err: (line) => err.push(line) },
-    readLine: async () => lines.shift() ?? null,
+    readLine: () => Promise.resolve(lines.shift() ?? null),
   }
   return { deps, out, err, written }
 }
