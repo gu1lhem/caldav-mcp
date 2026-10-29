@@ -5,6 +5,7 @@ import type { QueryEngine } from '../caldav/query.ts'
 import { registerCalendarTools } from './calendars.ts'
 import { registerTodoTools } from './todos.ts'
 import { registerEventTools } from './events.ts'
+import { registerListTools } from './lists.ts'
 
 export interface ToolDefinition {
   name: string
@@ -34,6 +35,7 @@ export type ToolMode = typeof TOOL_MODES[number]
  */
 const READ_TOOLS = new Set([
   'list_calendars',
+  'list_lists',
   'query_events',
   'get_event',
   'query_todos',
@@ -65,4 +67,6 @@ export function registerAllTools(mcp: McpHandler, engine: QueryEngine, mode: Too
   registerCalendarTools(registry, engine)
   registerTodoTools(registry, engine)
   registerEventTools(registry, engine)
+  registerListTools(registry, engine)
 }
+
