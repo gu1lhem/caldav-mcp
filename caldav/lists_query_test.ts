@@ -1,8 +1,7 @@
 // ── Named calendar lists in the engine ──
 
 import { assert, assertEquals } from 'std/assert/mod.ts'
-import type { EngineResult } from './types.ts'
-import type { CalendarLists } from './types.ts'
+import type { CalendarLists, EngineResult, EventSummary, TodoSummary } from './types.ts'
 import { EVENTS, setup, TASKS } from './testing/fixtures.ts'
 import { ORIGIN } from './testing/fake_caldav.ts'
 
@@ -10,11 +9,8 @@ const url = (path: string) => `${ORIGIN}${path}`
 
 /** Engine options reading one fixed set of lists. */
 const withLists = (lists: CalendarLists) => ({
-  lists: async (): Promise<EngineResult<CalendarLists>> => ({
-    success: true,
-    output: lists,
-    error: null,
-  }),
+  lists: () =>
+    Promise.resolve({ success: true, output: lists, error: null } as EngineResult<CalendarLists>),
 })
 
 const perso: CalendarLists = { perso: [url(TASKS)] }
@@ -25,7 +21,7 @@ Deno.test('query_todos with a list reads only its calendars', async () => {
   assertEquals(result.success, true)
   if (!result.success) return
   assertEquals(result.output.total, 2)
-  assertEquals(result.output.todos.every((t) => t.calendar === 'Inbox'), true)
+  assertEquals(result.output.todos.every((t) => (t as TodoSummary).calendar === 'Inbox'), true)
 })
 
 Deno.test('query_events with a list reads only its calendars', async () => {
@@ -34,7 +30,7 @@ Deno.test('query_events with a list reads only its calendars', async () => {
   assertEquals(result.success, true)
   if (!result.success) return
   assertEquals(result.output.total, 1)
-  assertEquals(result.output.events.every((e) => e.calendar === 'Meetings'), true)
+  assertEquals(result.output.events.every((e) => (e as EventSummary).calendar === 'Meetings'), true)
 })
 
 Deno.test('a list whose calendars hold no events answers empty', async () => {
@@ -47,10 +43,12 @@ Deno.test('a list whose calendars hold no events answers empty', async () => {
 
 Deno.test('a list and a calendarUrl together are refused', async () => {
   const { engine } = setup(withLists(perso))
-  for (const result of [
-    await engine.queryTodos({ list: 'perso', calendarUrl: url(TASKS) }),
-    await engine.queryEvents({ list: 'perso', calendarUrl: url(TASKS) }),
-  ]) {
+  for (
+    const result of [
+      await engine.queryTodos({ list: 'perso', calendarUrl: url(TASKS) }),
+      await engine.queryEvents({ list: 'perso', calendarUrl: url(TASKS) }),
+    ]
+  ) {
     assertEquals(result.success, false)
     if (result.success) continue
     assertEquals(result.error.code, 'InvalidArgument')
