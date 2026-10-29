@@ -97,6 +97,11 @@ export function registerTodoTools(mcp: ToolRegistry, engine: QueryEngine): void 
         type: 'object',
         properties: {
           calendarUrl: { type: 'string', description: 'Only this calendar (from list_calendars)' },
+          list: {
+            type: 'string',
+            description: 'Only the calendars of this named list (from list_lists); exclusive ' +
+              'with calendarUrl',
+          },
           status: { type: 'string', enum: TODO_STATUS_ENUM, description: 'Only this status' },
           text: { type: 'string', description: 'Case-insensitive text in summary or description' },
           dueBefore: dateSchema('Only tasks due before this'),
@@ -129,6 +134,7 @@ export function registerTodoTools(mcp: ToolRegistry, engine: QueryEngine): void 
       return reply(
         await engine.queryTodos({
           calendarUrl: optionalString(args, 'calendarUrl'),
+          list: optionalString(args, 'list'),
           status: todoStatus(args, 'status') ?? undefined,
           text: optionalString(args, 'text'),
           dueBefore: optionalInstant(args, 'dueBefore', engine.zone),
@@ -227,3 +233,4 @@ export function registerTodoTools(mcp: ToolRegistry, engine: QueryEngine): void 
     },
   )
 }
+
