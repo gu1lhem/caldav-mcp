@@ -233,4 +233,3 @@ export function registerTodoTools(mcp: ToolRegistry, engine: QueryEngine): void 
     },
   )
 }
-
