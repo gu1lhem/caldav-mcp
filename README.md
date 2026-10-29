@@ -214,6 +214,24 @@ which it does the first time it is used after its 15-minute access token runs ou
 sign it out before then, sign out everything: stop the server, delete the `oauth.kv` file (and its
 `-shm` and `-wal` files), and start it again. Every connector then asks you to sign in again.
 
+## Calendar lists
+
+Name a group of calendars once, then query it by name: `query_events` and `query_todos` take a
+`list` argument, exclusive with `calendarUrl`, and `list_lists` shows the lists with their
+members. Make and edit the lists with the CLI, from a checkout or inside the container:
+
+```bash
+deno task lists add perso        # then toggle calendars by number, Enter saves
+deno task lists list
+deno task lists edit perso
+deno task lists remove perso
+```
+
+The lists live in a JSON file, `CALDAV_LISTS_PATH` (default `/data/lists.json`), which the CLI
+rewrites whole and the server re-reads on every call, so an edit applies without a restart. A
+query on a list that names a calendar which no longer exists is refused, naming it, instead of
+silently answering with half the picture.
+
 ## Development
 
 ```bash
@@ -237,3 +255,4 @@ Licensed under [MIT](LICENSE). Copyright (c) 2026 Anton Shubin.
 ---
 
 Made by Anton Shubin · [antonshubin.com/tools/caldav-mcp](https://antonshubin.com/tools/caldav-mcp)
+
