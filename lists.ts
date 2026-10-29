@@ -3,7 +3,6 @@
 // reads that file to answer query_events and query_todos with a list name, and this command
 // shows, creates and edits the lists with a numbered picker over the calendars the account holds.
 
-import { dirname } from 'std/path/mod.ts'
 import type { CalendarLists, EngineResult } from './caldav/types.ts'
 import type { QueryEngine } from './caldav/query.ts'
 
@@ -11,8 +10,7 @@ import type { QueryEngine } from './caldav/query.ts'
 export const DEFAULT_LISTS_PATH = '/data/lists.json'
 
 /** How to call the command; printed on a wrong call. */
-export const LISTS_USAGE =
-  'Usage: caldav-mcp lists list | add <name> | edit <name> | remove <name>'
+export const LISTS_USAGE = 'Usage: caldav-mcp lists list | add <name> | edit <name> | remove <name>'
 
 /** Where the command writes: out for results, err for errors and usage. */
 export interface ListsOutput {
@@ -96,11 +94,17 @@ export async function readListsFile(path: string): Promise<EngineResult<Calendar
   }
 }
 
+/** The directory of a path, as mkdir needs it: "/data/lists.json" → "/data". */
+function parentDir(path: string): string {
+  const dir = path.replace(/[^/]*$/, '')
+  return dir === '' ? '.' : dir.slice(0, -1) || '/'
+}
+
 /** Write the lists as sorted, indented JSON, whole: a half-written file is never left behind. */
 export async function writeListsFile(path: string, lists: CalendarLists): Promise<void> {
   const sorted = Object.fromEntries(Object.keys(lists).sort().map((name) => [name, lists[name]!]))
   const tmp = `${path}.tmp`
-  await Deno.mkdir(dirname(path), { recursive: true })
+  await Deno.mkdir(parentDir(path), { recursive: true })
   await Deno.writeTextFile(tmp, JSON.stringify(sorted, null, 2) + '\n')
   await Deno.rename(tmp, path)
 }
