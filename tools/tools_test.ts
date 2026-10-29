@@ -375,4 +375,3 @@ Deno.test('a task and an event with a version 4 UID are read, updated and delete
     assert(!fake.objects.has(path))
   }
 })
-
