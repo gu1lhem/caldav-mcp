@@ -281,7 +281,14 @@ async function listedNames(mcp: McpHandler): Promise<string[]> {
 }
 
 const DELETE_TOOLS = ['delete_calendar', 'delete_event', 'delete_todo']
-const READ_TOOLS = ['get_event', 'get_todo', 'list_calendars', 'query_events', 'query_todos']
+const READ_TOOLS = [
+  'get_event',
+  'get_todo',
+  'list_calendars',
+  'list_lists',
+  'query_events',
+  'query_todos',
+]
 
 Deno.test('all lists the delete tools', async () => {
   const names = await listedNames(server('all').mcp)
@@ -368,3 +375,4 @@ Deno.test('a task and an event with a version 4 UID are read, updated and delete
     assert(!fake.objects.has(path))
   }
 })
+
