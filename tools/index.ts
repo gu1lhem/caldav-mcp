@@ -69,4 +69,3 @@ export function registerAllTools(mcp: McpHandler, engine: QueryEngine, mode: Too
   registerEventTools(registry, engine)
   registerListTools(registry, engine)
 }
-
