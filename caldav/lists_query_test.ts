@@ -73,12 +73,33 @@ Deno.test('a list naming a calendar that is no longer there is refused, naming i
   assert(result.error.message.includes('gone'))
 })
 
-Deno.test('without lists configured, every list is refused with NoLists', async () => {
+Deno.test('without lists configured, every other list is refused with NoLists', async () => {
   const { engine } = setup()
   const result = await engine.queryEvents({ list: 'perso' })
   assertEquals(result.success, false)
   if (result.success) return
   assertEquals(result.error.code, 'NoLists')
+})
+
+Deno.test('the built-in list all reads every calendar, even without lists configured', async () => {
+  const { engine } = setup()
+  const events = await engine.queryEvents({ list: 'all' })
+  assertEquals(events.success, true)
+  if (!events.success) return
+  assertEquals(events.output.total, 1)
+  const todos = await engine.queryTodos({ list: 'all' })
+  assertEquals(todos.success, true)
+  if (!todos.success) return
+  assertEquals(todos.output.total, 2)
+})
+
+Deno.test('the built-in list all ignores the lists file and keeps new calendars', async () => {
+  const { engine } = setup(withLists({ all: [url(TASKS)] }))
+  const result = await engine.queryEvents({ list: 'all' })
+  assertEquals(result.success, true)
+  if (!result.success) return
+  assertEquals(result.output.total, 1)
+  assertEquals(result.output.events.every((e) => (e as EventSummary).calendar === 'Meetings'), true)
 })
 
 Deno.test('listLists shows the members, a null displayName for a missing calendar', async () => {
@@ -87,6 +108,10 @@ Deno.test('listLists shows the members, a null displayName for a missing calenda
   assertEquals(result.success, true)
   if (!result.success) return
   assertEquals(result.output, [{
+    name: 'all',
+    all: true,
+    calendars: [],
+  }, {
     name: 'perso',
     calendars: [
       { url: url(TASKS), displayName: 'Inbox' },
@@ -95,10 +120,10 @@ Deno.test('listLists shows the members, a null displayName for a missing calenda
   }])
 })
 
-Deno.test('listLists without lists configured answers empty', async () => {
+Deno.test('listLists without lists configured answers the built-in all', async () => {
   const { engine } = setup()
   const result = await engine.listLists()
   assertEquals(result.success, true)
   if (!result.success) return
-  assertEquals(result.output, [])
+  assertEquals(result.output, [{ name: 'all', all: true, calendars: [] }])
 })

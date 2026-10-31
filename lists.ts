@@ -123,6 +123,12 @@ export async function runLists(args: readonly string[], deps: ListsDeps): Promis
       deps.output.err(err instanceof Error ? err.message : String(err))
       return 1
     }
+    if (listName === 'all') {
+      deps.output.err(
+        'all is built in: it always holds every calendar, so it cannot be made, edited or removed',
+      )
+      return 1
+    }
     if (command === 'remove') return await removeList(listName, deps)
     return await editList(listName, command === 'add', deps)
   }
@@ -132,6 +138,7 @@ export async function runLists(args: readonly string[], deps: ListsDeps): Promis
 
 async function showLists(deps: ListsDeps): Promise<number> {
   const lists = await deps.readLists()
+  deps.output.out('all: every calendar (built-in)')
   const names = Object.keys(lists).sort()
   if (names.length === 0) {
     deps.output.out('No lists yet. Run "caldav-mcp lists add <name>" to make one.')

@@ -66,7 +66,9 @@ export function registerEventTools(mcp: ToolRegistry, engine: QueryEngine): void
           calendarUrl: { type: 'string', description: 'Only this calendar (from list_calendars)' },
           list: {
             type: 'string',
-            description: 'Only the calendars of this named list (from list_lists); exclusive ' +
+            description:
+              'Only the calendars of this named list (from list_lists; the built-in list "all" is ' +
+              'every calendar), exclusive ' +
               'with calendarUrl',
           },
           dateFrom: dateSchema('Only events that end after this'),

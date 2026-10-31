@@ -60,6 +60,9 @@ import type {
 
 export const PRODID = '-//spy4x//caldav-mcp//EN'
 export const DEFAULT_LIMIT = 50
+
+/** The one built-in list name: every calendar of the account, always current. */
+export const ALL_LIST = 'all'
 export const MAX_LIMIT = 200
 
 export const TODO_STATUS_NAMES: Record<TodoStatus, string> = {
@@ -376,24 +379,27 @@ export class QueryEngine {
   }
 
   /**
-   * The named lists and their members, as the `list_lists` tool shows them: a null displayName
-   * marks a calendar that no longer exists, so a stale list is visible before it is queried.
+   * The named lists and their members, as the `list_lists` tool shows them: the built-in `all`
+   * list first, then the owner's lists from the lists file. A null displayName marks a calendar
+   * that no longer exists, so a stale list is visible before it is queried.
    */
   async listLists(): Promise<EngineResult<ListInfo[]>> {
-    if (!this.#lists) return ok([])
-    const lists = await this.#lists()
-    if (!lists.success) return lists
     const calendars = await this.#calendars()
     if (!calendars.success) return calendars
-    return ok(
-      Object.entries(lists.output).map(([name, urls]) => ({
+    const all: ListInfo = { name: ALL_LIST, all: true, calendars: [] }
+    if (!this.#lists) return ok([all])
+    const lists = await this.#lists()
+    if (!lists.success) return lists
+    return ok([
+      all,
+      ...Object.entries(lists.output).map(([name, urls]) => ({
         name,
         calendars: urls.map((url) => ({
           url,
           displayName: calendars.output.find((c) => sameResource(c.url, url))?.displayName ?? null,
         })),
       })),
-    )
+    ])
   }
 
   /** The listed calendar at `url`; anything else is refused, never guessed. */
@@ -429,6 +435,11 @@ export class QueryEngine {
       const one = await this.#knownCalendar(calendarUrl, component)
       return one.success ? ok([one.output]) : one
     }
+    return await this.#componentTargets(component)
+  }
+
+  /** Every calendar of the account that holds `component`. */
+  async #componentTargets(component: string): Promise<EngineResult<CalDavCalendar[]>> {
     const calendars = await this.#calendars()
     if (!calendars.success) return calendars
     return ok(
@@ -437,10 +448,13 @@ export class QueryEngine {
   }
 
   /**
-   * The calendars of the list `list` that hold `component`. The whole list is refused when one of
-   * its calendars no longer exists, so a query never silently answers with half the list.
+   * The calendars of the list `list` that hold `component`. The built-in `all` list covers every
+   * calendar of the account, so it works without the lists file and never goes stale; the whole
+   * list is refused when one of its calendars no longer exists, so a query never silently
+   * answers with half the list.
    */
   async #listTargets(list: string, component: string): Promise<EngineResult<CalDavCalendar[]>> {
+    if (list === ALL_LIST) return await this.#componentTargets(component)
     if (!this.#lists) {
       return fail('NoLists', 'this server runs without calendar lists (CALDAV_LISTS_PATH)')
     }
