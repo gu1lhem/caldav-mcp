@@ -45,11 +45,13 @@ import { dueInstant, formatIcalDate, startInstant } from './dates.ts'
 import { isSubscribed } from './subscriptions.ts'
 import type {
   CalendarInfo,
+  CalendarLists,
   EngineError,
   EngineResult,
   EventDetail,
   EventQueryResult,
   EventSummary,
+  ListInfo,
   TodoDetail,
   TodoQueryResult,
   TodoSummary,
@@ -85,11 +87,18 @@ export interface EngineOptions {
   zone?: string
   /** UID generator for new tasks and events. Default: a UUID version 7. */
   uid?: () => string
+  /**
+   * The named calendar lists, read fresh on every call, so the CLI's edits apply without a
+   * restart. Default: none; every `list` filter is then refused with NoLists.
+   */
+  lists?: () => Promise<EngineResult<CalendarLists>>
 }
 
 /** Filters of {@link QueryEngine.queryTodos}. */
 export interface TodoQuery {
   calendarUrl?: string
+  /** The calendars of this named list; exclusive with `calendarUrl`. */
+  list?: string
   status?: TodoStatus
   /** Case-insensitive, in summary and description. */
   text?: string
@@ -106,6 +115,8 @@ export interface TodoQuery {
 /** Filters of {@link QueryEngine.queryEvents}. */
 export interface EventQuery {
   calendarUrl?: string
+  /** The calendars of this named list; exclusive with `calendarUrl`. */
+  list?: string
   from?: Date
   to?: Date
   text?: string
@@ -267,6 +278,7 @@ export class QueryEngine {
   readonly #now: () => Date
   readonly #zone: string
   readonly #uid: () => string
+  readonly #lists: (() => Promise<EngineResult<CalendarLists>>) | undefined
   #homes?: string[]
   /** The last calendar list, for checking object URLs without a PROPFIND each time. */
   #calendarCache?: CalDavCalendar[]
@@ -276,6 +288,7 @@ export class QueryEngine {
     this.#now = options.now ?? (() => new Date())
     this.#zone = options.zone ?? Intl.DateTimeFormat().resolvedOptions().timeZone
     this.#uid = options.uid ?? uuidV7
+    this.#lists = options.lists
   }
 
   /** The IANA zone that date-only and floating values are read in. */
@@ -362,6 +375,27 @@ export class QueryEngine {
     ))
   }
 
+  /**
+   * The named lists and their members, as the `list_lists` tool shows them: a null displayName
+   * marks a calendar that no longer exists, so a stale list is visible before it is queried.
+   */
+  async listLists(): Promise<EngineResult<ListInfo[]>> {
+    if (!this.#lists) return ok([])
+    const lists = await this.#lists()
+    if (!lists.success) return lists
+    const calendars = await this.#calendars()
+    if (!calendars.success) return calendars
+    return ok(
+      Object.entries(lists.output).map(([name, urls]) => ({
+        name,
+        calendars: urls.map((url) => ({
+          url,
+          displayName: calendars.output.find((c) => sameResource(c.url, url))?.displayName ?? null,
+        })),
+      })),
+    )
+  }
+
   /** The listed calendar at `url`; anything else is refused, never guessed. */
   async #knownCalendar(url: string, component?: string): Promise<EngineResult<CalDavCalendar>> {
     const calendars = await this.#calendars()
@@ -385,7 +419,12 @@ export class QueryEngine {
   async #targets(
     calendarUrl: string | undefined,
     component: string,
+    list?: string,
   ): Promise<EngineResult<CalDavCalendar[]>> {
+    if (calendarUrl && list) {
+      return fail('InvalidArgument', 'calendarUrl and list are exclusive: pass one of the two')
+    }
+    if (list) return await this.#listTargets(list, component)
     if (calendarUrl) {
       const one = await this.#knownCalendar(calendarUrl, component)
       return one.success ? ok([one.output]) : one
@@ -395,6 +434,36 @@ export class QueryEngine {
     return ok(
       calendars.output.filter((c) => c.components.length === 0 || c.components.includes(component)),
     )
+  }
+
+  /**
+   * The calendars of the list `list` that hold `component`. The whole list is refused when one of
+   * its calendars no longer exists, so a query never silently answers with half the list.
+   */
+  async #listTargets(list: string, component: string): Promise<EngineResult<CalDavCalendar[]>> {
+    if (!this.#lists) {
+      return fail('NoLists', 'this server runs without calendar lists (CALDAV_LISTS_PATH)')
+    }
+    const lists = await this.#lists()
+    if (!lists.success) return lists
+    const urls = lists.output[list]
+    if (!urls) {
+      return fail(
+        'UnknownList',
+        `${list} is not a calendar list; list_lists shows the current ones`,
+      )
+    }
+    const calendars = await this.#calendars()
+    if (!calendars.success) return calendars
+    const missing = urls.filter((url) => !calendars.output.some((c) => sameResource(c.url, url)))
+    if (missing.length > 0) {
+      return fail(
+        'UnknownCalendar',
+        `list ${list} names calendars list_calendars no longer returns: ${missing.join(', ')}`,
+      )
+    }
+    const picked = calendars.output.filter((c) => urls.some((url) => sameResource(c.url, url)))
+    return ok(picked.filter((c) => c.components.length === 0 || c.components.includes(component)))
   }
 
   /** Read every object of `component` from the target calendars. */
@@ -430,9 +499,9 @@ export class QueryEngine {
     return out
   }
 
-  /** Tasks across all calendars (or one), with counts. Compact unless `detail` is set. */
+  /** Tasks across all calendars (or one, or one named list), with counts. Compact unless `detail`. */
   async queryTodos(query: TodoQuery): Promise<EngineResult<TodoQueryResult>> {
-    const targets = await this.#targets(query.calendarUrl, 'VTODO')
+    const targets = await this.#targets(query.calendarUrl, 'VTODO', query.list)
     if (!targets.success) return targets
     const includeCompleted = query.includeCompleted === true ||
       query.status === TodoStatus.Completed
@@ -653,9 +722,9 @@ export class QueryEngine {
     return deleted.success ? ok(null) : caldavFail(deleted)
   }
 
-  /** Events across all calendars (or one), optionally in a time range. */
+  /** Events across all calendars (or one, or one named list), optionally in a time range. */
   async queryEvents(query: EventQuery): Promise<EngineResult<EventQueryResult>> {
-    const targets = await this.#targets(query.calendarUrl, 'VEVENT')
+    const targets = await this.#targets(query.calendarUrl, 'VEVENT', query.list)
     if (!targets.success) return targets
     const timeRange = query.from || query.to ? { start: query.from, end: query.to } : undefined
     const gathered = await this.#gather(targets.output, 'VEVENT', { timeRange }, readEvent)

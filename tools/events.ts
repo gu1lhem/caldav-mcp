@@ -64,6 +64,11 @@ export function registerEventTools(mcp: ToolRegistry, engine: QueryEngine): void
         type: 'object',
         properties: {
           calendarUrl: { type: 'string', description: 'Only this calendar (from list_calendars)' },
+          list: {
+            type: 'string',
+            description: 'Only the calendars of this named list (from list_lists); exclusive ' +
+              'with calendarUrl',
+          },
           dateFrom: dateSchema('Only events that end after this'),
           dateTo: dateSchema('Only events that start before this'),
           text: { type: 'string', description: 'Text in summary, description or location' },
@@ -78,6 +83,7 @@ export function registerEventTools(mcp: ToolRegistry, engine: QueryEngine): void
       reply(
         await engine.queryEvents({
           calendarUrl: optionalString(args, 'calendarUrl'),
+          list: optionalString(args, 'list'),
           from: optionalInstant(args, 'dateFrom', engine.zone),
           to: optionalInstant(args, 'dateTo', engine.zone),
           text: optionalString(args, 'text'),

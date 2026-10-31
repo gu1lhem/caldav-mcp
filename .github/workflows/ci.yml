@@ -1,0 +1,23 @@
+# The same check the upstream Woodpecker pipeline runs, on the GitHub Actions the fork has:
+# a change that breaks check, tests or the JSR package fails here instead of at the next release.
+name: CI
+on:
+  push:
+    branches: ['**']
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: denoland/setup-deno@v2
+        with:
+          # The Deno version the upstream .woodpecker.yml pins.
+          deno-version: v2.9.7
+      # --frozen: fail when deno.lock and deno.jsonc disagree, instead of resolving afresh. The
+      # test run needs its own flag: the tests import modules that deno install does not reach.
+      - run: deno install --frozen
+      - run: deno task check
+      - run: deno task test --frozen
+      - run: deno publish --dry-run

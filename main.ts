@@ -8,6 +8,7 @@ import { withSubscriptions } from './caldav/subscriptions.ts'
 import { type JsonRpcResponse, McpHandler, SUPPORTED_PROTOCOL_VERSIONS } from './mcp.ts'
 import { MCP_PATH, type OAuth, openOAuth } from './oauth.ts'
 import { runGrantsCommand } from './grants.ts'
+import { readListsFile, runListsCommand } from './lists.ts'
 import { AUTHORIZE_PATH } from '@spy4x/server/mcp-oauth'
 import { registerAllTools } from './tools/index.ts'
 import {
@@ -30,6 +31,20 @@ async function main(): Promise<void> {
   // `caldav-mcp grants …` manages OAuth grants and exits; it needs no CalDAV settings.
   if (Deno.args[0] === 'grants') Deno.exit(await runGrantsCommand(Deno.args.slice(1)))
 
+  // `caldav-mcp lists …` edits the named calendar lists and exits; it needs the CalDAV settings.
+  if (Deno.args[0] === 'lists') {
+    const env = loadEnv()
+    const auth = { username: env.caldavUsername, password: env.caldavPassword }
+    const options = engineOptions(env)
+    const client = withSubscriptions(
+      createCalDavClient({ serverUrl: env.caldavUrl, auth }),
+      { serverUrl: env.caldavUrl, auth, zone: options.zone },
+    )
+    Deno.exit(
+      await runListsCommand(Deno.args.slice(1), env.listsPath, new QueryEngine(client, options)),
+    )
+  }
+
   const env = loadEnv()
   const log = createLogger(env, (line) => console.error(line))
 
@@ -45,7 +60,11 @@ async function main(): Promise<void> {
     // whole-day and floating dates are read in the zone the engine reads them in.
     { serverUrl: env.caldavUrl, auth, zone: options.zone },
   )
-  const engine = new QueryEngine(client, options)
+  const engine = new QueryEngine(client, {
+    ...options,
+    // The lists are re-read on every call, so the CLI's edits apply without a restart.
+    lists: () => readListsFile(env.listsPath),
+  })
   log('info', `Time zone: ${engine.zone}`)
 
   const mcp = new McpHandler({ name: 'caldav-mcp', version: VERSION })
