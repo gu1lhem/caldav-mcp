@@ -232,6 +232,10 @@ rewrites whole and the server re-reads on every call, so an edit applies without
 query on a list that names a calendar which no longer exists is refused, naming it, instead of
 silently answering with half the picture.
 
+One list is built in: `all` covers every calendar of the account, always current — a calendar
+made today is in it today, without any edit. It needs no lists file, and the name cannot be
+taken by a CLI list.
+
 ## Development
 
 ```bash

@@ -143,8 +143,17 @@ Deno.test('edit starts from the current members', async () => {
 
 Deno.test('all and none flip every calendar', async () => {
   const h = harness({}, ['none', 'all', ''])
-  assertEquals(await runLists(['add', 'all'], h.deps), 0)
-  assertEquals(h.written, [{ all: ['https://dav/a/', 'https://dav/b/'] }])
+  assertEquals(await runLists(['add', 'perso'], h.deps), 0)
+  assertEquals(h.written, [{ perso: ['https://dav/a/', 'https://dav/b/'] }])
+})
+
+Deno.test('the built-in list all cannot be made, edited or removed', async () => {
+  for (const command of ['add', 'edit', 'remove'] as const) {
+    const h = harness({}, [''])
+    assertEquals(await runLists([command, 'all'], h.deps), 1)
+    assertEquals(h.written, [])
+    assert(h.err.join('\n').includes('built in'), h.err.join('\n'))
+  }
 })
 
 Deno.test('a number out of range is refused and nothing is saved yet', async () => {

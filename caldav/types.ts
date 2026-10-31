@@ -28,6 +28,11 @@ export type CalendarLists = Record<string, string[]>
 /** One named list, as the `list_lists` tool shows it. */
 export interface ListInfo {
   name: string
+  /**
+   * Present and true for the built-in `all` list: every calendar of the account, always
+   * current, so `calendars` is empty and its members are not listed one by one.
+   */
+  all?: true
   /** The members in the order of the list; a null displayName is a calendar no longer there. */
   calendars: { url: string; displayName: string | null }[]
 }
