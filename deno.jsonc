@@ -4,7 +4,7 @@
   "license": "MIT",
   "exports": "./main.ts",
   "publish": {
-    "include": ["main.ts", "env.ts", "mcp.ts", "oauth.ts", "grants.ts", "caldav/**/*.ts", "tools/**/*.ts", "LICENSE", "README.md"],
+    "include": ["main.ts", "env.ts", "mcp.ts", "oauth.ts", "grants.ts", "lists.ts", "caldav/**/*.ts", "tools/**/*.ts", "LICENSE", "README.md"],
     "exclude": ["**/*_test.ts", "caldav/testing"]
   },
   "description": "Lightweight CalDAV MCP server — events + todos for AI agents",
@@ -19,6 +19,8 @@
     "check": "deno lint && deno fmt --check && deno check --unstable-kv main.ts",
     // Lists the OAuth grants, or revokes one: `deno task grants list`, `deno task grants revoke <id>`.
     "grants": "deno run -A --unstable-kv main.ts grants",
+    // The named calendar lists: `deno task lists list | add <name> | edit <name> | remove <name>`.
+    "lists": "deno run -A main.ts lists",
     // Prints the OWNER_PASSWORD_HASH for a password read from stdin; needs AUTH_PEPPER set.
     "password:hash": "deno run --allow-env=AUTH_PEPPER @spy4x/server/sign-in/password-hash",
     // Remakes the demo video in media/demo/; `-- --live` first runs a new real exchange.
@@ -55,3 +57,4 @@
     "hono": "jsr:@hono/hono@4.13.8"
   }
 }
+
