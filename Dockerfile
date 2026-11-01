@@ -1,16 +1,27 @@
 # ── Multistage build: compile → distroless runtime ──
-FROM denoland/deno:alpine-2.9.7 AS builder
+# The builder runs on the build machine's own platform and cross-compiles for the target one, so
+# an arm64 image builds on an amd64 host without emulation: the runtime stage only copies files.
+# kaniko ignores `--platform` here, so CI passes BUILDER as the image's amd64 digest instead.
+ARG BUILDER=denoland/deno:alpine-2.9.7
+FROM --platform=$BUILDPLATFORM ${BUILDER} AS builder
 
 WORKDIR /app
 COPY . .
 
-# Compile to static binary
+# Compile to a static binary for the image's platform. BuildKit and kaniko set TARGETARCH:
+# `docker build` gives the host's, `--platform` or kaniko's `--custom-platform` another.
 # --unstable-kv: the OAuth store is Deno KV.
 # --frozen: the build fails when deno.lock does not match deno.jsonc, instead of resolving afresh.
-RUN deno compile -A --unstable-kv --frozen \
-  --target x86_64-unknown-linux-gnu \
-  --output /tmp/caldav-mcp \
-  main.ts
+ARG TARGETARCH
+RUN case "$TARGETARCH" in \
+    amd64) target=x86_64-unknown-linux-gnu ;; \
+    arm64) target=aarch64-unknown-linux-gnu ;; \
+    *) echo "unsupported TARGETARCH: $TARGETARCH" >&2; exit 1 ;; \
+  esac && \
+  deno compile -A --unstable-kv --frozen \
+    --target "$target" \
+    --output /tmp/caldav-mcp \
+    main.ts
 
 # ── Runtime: distroless ──
 FROM gcr.io/distroless/cc-debian12
