@@ -10,6 +10,7 @@ import {
   CalDavErrorCode,
   type CalDavObject,
   type CalDavResult,
+  type CalDavSubscriptionEvent,
 } from '@spy4x/caldav'
 import { sameResource } from '@spy4x/caldav/url'
 import { uuidV7 } from '@spy4x/platform/universal/uuid'
@@ -42,6 +43,7 @@ import {
   TodoStatus,
 } from '@spy4x/time/ical-tasks'
 import { dueInstant, formatIcalDate, startInstant } from './dates.ts'
+import { eventInRange } from './range.ts'
 import type {
   CalendarInfo,
   EngineError,
@@ -250,6 +252,28 @@ function clampLimit(limit: number | undefined): number {
   return Math.min(MAX_LIMIT, Math.max(1, Math.floor(limit)))
 }
 
+/** Whether a call only reads, or may write: a write to a calendar subscription is refused. */
+type Access = 'read' | 'write'
+
+/** Refuse a write to a calendar subscription, before any request. */
+function writable(calendar: CalDavCalendar, access: Access): EngineResult<CalDavCalendar> {
+  if (access === 'write' && calendar.subscribed) {
+    return fail(
+      'ReadOnly',
+      `${calendar.displayName} (${calendar.url}) is a calendar subscription, which is read-only: ` +
+        'its events come from an external feed and cannot be created, changed or deleted here',
+    )
+  }
+  return ok(calendar)
+}
+
+/** The calendar an item URL is in, and the UID it names when it is a subscription's event. */
+interface KnownObject {
+  calendar: CalDavCalendar
+  /** Set for `<subscription URL>#<UID>`, the form `readSubscription` gives its events. */
+  uid?: string
+}
+
 /** Calendars and the objects read from them, with the calendars that failed. */
 interface Gathered<T> {
   items: { item: T; object: CalDavObject; calendar: CalDavCalendar }[]
@@ -296,7 +320,7 @@ export class QueryEngine {
     if (!homes.success) return homes
     const all: CalDavCalendar[] = []
     for (const home of homes.output) {
-      const listed = await this.#client.listCalendars(home)
+      const listed = await this.#client.listCalendars(home, { subscriptions: true })
       if (!listed.success) return caldavFail(listed)
       all.push(...listed.output)
     }
@@ -304,22 +328,34 @@ export class QueryEngine {
     return ok(all)
   }
 
+  /** The listed calendar `match` picks: the cached list first, then a fresh one. */
+  async #findCalendar(
+    match: (calendar: CalDavCalendar) => boolean,
+  ): Promise<EngineResult<CalDavCalendar | undefined>> {
+    const cached = this.#calendarCache?.find(match)
+    if (cached) return ok(cached)
+    const calendars = await this.#calendars()
+    return calendars.success ? ok(calendars.output.find(match)) : calendars
+  }
+
   /**
    * Refuse an object URL that is not directly inside a listed calendar, so a task or event tool
-   * never reads, writes or deletes a calendar, a principal or another user's data. The cached list
-   * is tried first and refreshed once when the calendar is not in it.
+   * never reads, writes or deletes a calendar, a principal or another user's data. The one URL
+   * with a fragment allowed is a subscription's event, `<subscription URL>#<UID>`, and only to
+   * read. A write (the default) inside a subscription is refused.
    */
-  async #knownObject(url: string): Promise<EngineResult<null>> {
+  async #knownObject(url: string, access: Access = 'write'): Promise<EngineResult<KnownObject>> {
     let target: URL
     try {
       target = new URL(url)
     } catch {
       return fail('InvalidArgument', `url is not a URL: ${url}`)
     }
+    if (url.includes('#')) return await this.#subscriptionEvent(url, access)
     if (target.pathname.endsWith('/')) {
       return fail('InvalidArgument', `${url} is a collection, not a task or event`)
     }
-    if (/[?#]/.test(url)) {
+    if (url.includes('?')) {
       return fail('InvalidArgument', `${url} has a query or fragment; pass the url as listed`)
     }
     // An encoded separator could step out of the calendar on the server. Dot segments need no
@@ -334,15 +370,53 @@ export class QueryEngine {
       return fail('InvalidArgument', `${url} does not name one item inside a calendar`)
     }
     const parent = new URL('.', target)
-    const inList = (list: CalDavCalendar[]) => list.some((c) => sameResource(c.url, parent))
-    if (this.#calendarCache && inList(this.#calendarCache)) return ok(null)
-    const calendars = await this.#calendars()
-    if (!calendars.success) return calendars
-    if (inList(calendars.output)) return ok(null)
-    return fail(
-      'UnknownCalendar',
-      `${url} is not inside one of the calendars list_calendars returns`,
+    const found = await this.#findCalendar((c) => sameResource(c.url, parent))
+    if (!found.success) return found
+    if (!found.output) {
+      return fail(
+        'UnknownCalendar',
+        `${url} is not inside one of the calendars list_calendars returns`,
+      )
+    }
+    const allowed = writable(found.output, access)
+    return allowed.success ? ok({ calendar: allowed.output }) : allowed
+  }
+
+  /** `<subscription URL>#<UID>`: accepted only for a listed subscription, and only to read. */
+  async #subscriptionEvent(url: string, access: Access): Promise<EngineResult<KnownObject>> {
+    const at = url.indexOf('#')
+    const base = url.slice(0, at)
+    let uid: string
+    try {
+      uid = decodeURIComponent(url.slice(at + 1))
+    } catch {
+      return fail('InvalidArgument', `${url} has a malformed escape`)
+    }
+    if (base.includes('?') || uid === '') {
+      return fail('InvalidArgument', `${url} has a query or fragment; pass the url as listed`)
+    }
+    const found = await this.#findCalendar((c) =>
+      c.subscribed === true && sameResource(c.url, base)
     )
+    if (!found.success) return found
+    if (!found.output) {
+      return fail(
+        'InvalidArgument',
+        `${url} has a fragment, which only names an event of a calendar subscription; pass the ` +
+          'url as listed',
+      )
+    }
+    const allowed = writable(found.output, access)
+    return allowed.success ? ok({ calendar: allowed.output, uid }) : allowed
+  }
+
+  /** Every event of a subscription, one object per UID, from the server's `?export`. */
+  async #feed(calendar: CalDavCalendar): Promise<EngineResult<CalDavSubscriptionEvent[]>> {
+    if (!this.#client.readSubscription) {
+      return fail('Unsupported', `this CalDAV client cannot read the subscription ${calendar.url}`)
+    }
+    const read = await this.#client.readSubscription(calendar.url)
+    return read.success ? ok(read.output) : caldavFail(read)
   }
 
   /** Every calendar of the account. */
@@ -356,12 +430,20 @@ export class QueryEngine {
         components: c.components,
         color: c.color,
         ctag: c.ctag,
+        subscribed: c.subscribed,
       })
     ))
   }
 
-  /** The listed calendar at `url`; anything else is refused, never guessed. */
-  async #knownCalendar(url: string, component?: string): Promise<EngineResult<CalDavCalendar>> {
+  /**
+   * The listed calendar at `url`; anything else is refused, never guessed. A write (the default)
+   * to a calendar subscription is refused.
+   */
+  async #knownCalendar(
+    url: string,
+    component?: string,
+    access: Access = 'write',
+  ): Promise<EngineResult<CalDavCalendar>> {
     const calendars = await this.#calendars()
     if (!calendars.success) return calendars
     let target: URL
@@ -374,6 +456,14 @@ export class QueryEngine {
     if (!found) {
       return fail('UnknownCalendar', `${url} is not one of the calendars list_calendars returns`)
     }
+    const allowed = writable(found, access)
+    if (!allowed.success) return allowed
+    if (component === 'VTODO' && found.subscribed) {
+      return fail(
+        'InvalidArgument',
+        `${found.displayName} is a calendar subscription: it holds events`,
+      )
+    }
     if (component && found.components.length > 0 && !found.components.includes(component)) {
       return fail('InvalidArgument', `${found.displayName} does not hold ${component}`)
     }
@@ -385,17 +475,24 @@ export class QueryEngine {
     component: string,
   ): Promise<EngineResult<CalDavCalendar[]>> {
     if (calendarUrl) {
-      const one = await this.#knownCalendar(calendarUrl, component)
+      const one = await this.#knownCalendar(calendarUrl, component, 'read')
       return one.success ? ok([one.output]) : one
     }
     const calendars = await this.#calendars()
     if (!calendars.success) return calendars
+    // A subscription is an iCalendar feed of events, so task queries leave it out.
     return ok(
-      calendars.output.filter((c) => c.components.length === 0 || c.components.includes(component)),
+      calendars.output.filter((c) =>
+        (c.components.length === 0 || c.components.includes(component)) &&
+        !(c.subscribed && component === 'VTODO')
+      ),
     )
   }
 
-  /** Read every object of `component` from the target calendars. */
+  /**
+   * Read every object of `component` from the target calendars. A subscription is read whole, so
+   * the time range the server applies to a normal calendar is applied here.
+   */
   async #gather<T>(
     calendars: CalDavCalendar[],
     component: string,
@@ -404,25 +501,35 @@ export class QueryEngine {
   ): Promise<Gathered<T>> {
     const out: Gathered<T> = { items: [], unreadable: 0, failed: [] }
     const lists = await Promise.all(
-      calendars.map((calendar) =>
-        this.#client.listObjects(calendar.url, {
+      calendars.map(async (calendar): Promise<EngineResult<CalDavObject[]>> => {
+        if (calendar.subscribed) return await this.#feed(calendar)
+        const listed = await this.#client.listObjects(calendar.url, {
           component,
           includeCompleted: options.includeCompleted,
           timeRange: options.timeRange,
         })
-      ),
+        return listed.success ? ok(listed.output) : caldavFail(listed)
+      }),
     )
+    const range = options.timeRange
     calendars.forEach((calendar, index) => {
       const listed = lists[index]!
       if (!listed.success) {
-        out.failed.push({ url: calendar.url, ...fromCalDav(listed.error) })
+        out.failed.push({ url: calendar.url, ...listed.error })
         return
       }
       for (const object of listed.output) {
         const parsed = parseIcal(object.data)
         const item = parsed.success ? read(parsed.output) : undefined
-        if (item === undefined) out.unreadable++
-        else out.items.push({ item, object, calendar })
+        if (item === undefined) {
+          out.unreadable++
+          continue
+        }
+        // The server applied the range to a normal calendar already.
+        if (calendar.subscribed && range && !eventInRange(parsed.output!, range, this.#zone)) {
+          continue
+        }
+        out.items.push({ item, object, calendar })
       }
     })
     return out
@@ -503,21 +610,35 @@ export class QueryEngine {
     }))
   }
 
-  async #read(url: string): Promise<EngineResult<{ object: CalDavObject; root: IcalComponent }>> {
-    const known = await this.#knownObject(url)
+  async #read(
+    url: string,
+    access: Access,
+  ): Promise<EngineResult<{ object: CalDavObject; root: IcalComponent }>> {
+    const known = await this.#knownObject(url, access)
     if (!known.success) return known
-    const got = await this.#client.getObject(url)
-    if (!got.success) return caldavFail(got)
-    const parsed = parseIcal(got.output.data)
+    const { calendar, uid } = known.output
+    let object: CalDavObject
+    if (uid === undefined) {
+      const got = await this.#client.getObject(url)
+      if (!got.success) return caldavFail(got)
+      object = got.output
+    } else {
+      const feed = await this.#feed(calendar)
+      if (!feed.success) return feed
+      const found = feed.output.find((event) => event.uid === uid)
+      if (!found) return fail('NotFound', `${calendar.displayName} has no event with UID ${uid}`)
+      object = found
+    }
+    const parsed = parseIcal(object.data)
     if (!parsed.success) {
       return fail('Unreadable', `the object is not valid iCalendar: ${parsed.error.message}`)
     }
-    return ok({ object: got.output, root: parsed.output })
+    return ok({ object, root: parsed.output })
   }
 
   /** One task with every field this server reads. */
   async getTodo(url: string): Promise<EngineResult<TodoDetail>> {
-    const read = await this.#read(url)
+    const read = await this.#read(url, 'read')
     if (!read.success) return read
     const todo = readTodo(read.output.root)
     if (!todo) return fail('NotATask', `${url} holds no VTODO`)
@@ -526,7 +647,7 @@ export class QueryEngine {
 
   /** One event. */
   async getEvent(url: string): Promise<EngineResult<EventDetail>> {
-    const read = await this.#read(url)
+    const read = await this.#read(url, 'read')
     if (!read.success) return read
     const event = readEvent(read.output.root)
     if (!event) return fail('NotAnEvent', `${url} holds no VEVENT`)
@@ -550,7 +671,7 @@ export class QueryEngine {
     edit: (root: IcalComponent) => EngineResult<T>,
   ): Promise<EngineResult<{ write: WriteResult; root: IcalComponent; result: T }>> {
     if (!etag) return fail('InvalidArgument', 'etag is required: pass the one get_todo returned')
-    const read = await this.#read(url)
+    const read = await this.#read(url, 'write')
     if (!read.success) return read
     const { object, root } = read.output
     if (object.etag !== null && object.etag !== etag) {

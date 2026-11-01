@@ -191,3 +191,11 @@ Deno.test('OWNER_PASSWORD_HASH must be a pbkdf2-sha256 hash, not a plain passwor
 Deno.test('AUTH_PEPPER must be at least 32 characters', () => {
   assertThrows(() => load({ ...OAUTH, AUTH_PEPPER: 'p'.repeat(31) }), Error, 'AUTH_PEPPER')
 })
+
+Deno.test('an http: CALDAV_URL stops startup unless CALDAV_ALLOW_HTTP is true', () => {
+  const http = { CALDAV_URL: 'http://radicale:5232' }
+  assertThrows(() => load(http), Error, 'CALDAV_ALLOW_HTTP=true')
+  assertThrows(() => load({ ...http, CALDAV_ALLOW_HTTP: 'false' }), Error, 'unencrypted')
+  assertEquals(load({ ...http, CALDAV_ALLOW_HTTP: 'true' }).allowHttp, true)
+  assertEquals(load({}).allowHttp, false)
+})

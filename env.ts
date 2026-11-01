@@ -12,6 +12,11 @@ export interface Env {
   caldavUrl: string
   caldavUsername: string
   caldavPassword: string
+  /**
+   * Whether an `http:` `CALDAV_URL` is allowed, from `CALDAV_ALLOW_HTTP`. Read only for an `http:`
+   * address, so an `https:` setup needs no permission for the variable.
+   */
+  allowHttp: boolean
   /** Interface the HTTP transport binds to. Loopback unless `HOST` says otherwise. */
   host: string
   port: number
@@ -55,7 +60,8 @@ const MIN_PEPPER_LENGTH = 32
 /**
  * Read the configuration once at startup. Blank values count as unset. Throws on a missing
  * required value or on a `PORT`, `LOG_LEVEL`, `TRUSTED_PROXIES`, `ALLOW_BEARER_TOKEN_WITH_OAUTH`,
- * `CALDAV_MCP_TOOLS` or `CALDAV_MCP_TIME_ZONE` it cannot use, naming the variable but never echoing its value.
+ * `CALDAV_MCP_TOOLS` or `CALDAV_MCP_TIME_ZONE` it cannot use, and on an `http:` `CALDAV_URL`
+ * without `CALDAV_ALLOW_HTTP=true`, naming the variable but never echoing its value.
  */
 export function loadEnv(env: EnvReader = systemEnv): Env {
   // Support both CALDAV_URL and CALDAV_SERVER_URL (homelab convention)
@@ -65,11 +71,20 @@ export function loadEnv(env: EnvReader = systemEnv): Env {
   }
 
   const optional = (name: string) => readEnvVar(env, name, { optional: true })
+  const allowHttp = /^http:/i.test(caldavUrl) &&
+    parseBoolean('CALDAV_ALLOW_HTTP', optional('CALDAV_ALLOW_HTTP'))
+  if (/^http:/i.test(caldavUrl) && !allowHttp) {
+    throw new Error(
+      'CALDAV_URL is an http: address, so the CalDAV password would travel unencrypted: use ' +
+        'https:, or set CALDAV_ALLOW_HTTP=true if the server is on localhost or a private network',
+    )
+  }
 
   return {
     caldavUrl: caldavUrl.replace(/\/+$/, ''), // strip trailing slash
     caldavUsername: readEnvVar(env, 'CALDAV_USERNAME'),
     caldavPassword: readEnvVar(env, 'CALDAV_PASSWORD'),
+    allowHttp,
     host: optional('HOST') || '127.0.0.1',
     port: parsePort(optional('PORT') || '3000'),
     mcpBearerToken: optional('MCP_BEARER_TOKEN') || undefined,

@@ -128,6 +128,55 @@ export const MEETING = crlf([
   'END:VCALENDAR',
 ])
 
+/** A calendar subscription: an external feed the server serves read-only at `?export`. */
+export const HOLIDAYS = `${HOME}holidays/`
+export const HOLIDAYS_NAME = 'Holidays'
+/** A UID with a space and an `@`, which the event URL's fragment percent-encodes. */
+export const BIRTHDAY_UID = 'birthday 1@feed.example'
+export const BIRTHDAY_URL = `${ORIGIN}${HOLIDAYS}#${encodeURIComponent(BIRTHDAY_UID)}`
+/**
+ * The feed: an all-day holiday on 2026-10-20, a yearly birthday since 2000-10-25, a match in
+ * November at a stadium, and an event in a zone no one knows, so its time cannot be resolved.
+ */
+export const HOLIDAYS_FEED = crlf([
+  'BEGIN:VCALENDAR',
+  'VERSION:2.0',
+  'PRODID:-//feed.example//holidays//EN',
+  'BEGIN:VEVENT',
+  'UID:holiday-1@feed.example',
+  'DTSTAMP:20261001T000000Z',
+  'DTSTART;VALUE=DATE:20261020',
+  'SUMMARY:Harvest day',
+  'END:VEVENT',
+  'BEGIN:VEVENT',
+  `UID:${BIRTHDAY_UID}`,
+  'DTSTAMP:20261001T000000Z',
+  'DTSTART;VALUE=DATE:20001025',
+  'RRULE:FREQ=YEARLY',
+  'SUMMARY:Ann turns older',
+  'END:VEVENT',
+  'BEGIN:VEVENT',
+  'UID:match-1@feed.example',
+  'DTSTAMP:20261001T000000Z',
+  'DTSTART:20261115T100000Z',
+  'DTEND:20261115T120000Z',
+  'SUMMARY:Match day',
+  'LOCATION:City Stadium',
+  'END:VEVENT',
+  'BEGIN:VEVENT',
+  'UID:odd-1@feed.example',
+  'DTSTAMP:20261001T000000Z',
+  'DTSTART;TZID=Mars/Olympus:20261201T090000',
+  'SUMMARY:Somewhere else',
+  'END:VEVENT',
+  'END:VCALENDAR',
+])
+
+/** Add the {@link HOLIDAYS} subscription to a fake server. It names no components, like many. */
+export function addSubscription(fake: FakeCalDav, feed: string = HOLIDAYS_FEED): void {
+  fake.calendars.set(HOLIDAYS, { displayName: HOLIDAYS_NAME, components: [], feed })
+}
+
 export interface Setup {
   fake: FakeCalDav
   engine: QueryEngine
