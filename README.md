@@ -31,6 +31,10 @@ and pulled in a large npm install. I run it on my own homelab next to my calenda
   (VEVENT) and tasks (VTODO), with ETags so two edits never overwrite each other silently.
 - **One call searches every calendar.** The calendar is optional on every query, so "what is
   overdue?" is one request, not one per calendar.
+- **Calendar subscriptions, read-only.** Subscribed iCalendar feeds (holidays, sports, a
+  colleague's calendar) are listed and their events searched like any other calendar. They are
+  read through your server's `?export`, which sabre/dav servers such as Nextcloud offer, and every
+  write to one is refused.
 - **Answers an assistant can use.** Queries return totals, counts by status and priority and the
   number of overdue tasks next to the list, capped at 200 items with a `truncated` flag.
 - **Built on web standards.** Modern TypeScript on Fetch, Web Crypto, Streams and ES modules,
@@ -65,8 +69,8 @@ Replace `cal.example.com` in `--allow-net` with the host of your `CALDAV_URL`.
       "args": [
         "run",
         "--allow-net=cal.example.com",
-        "--allow-env=CALDAV_URL,CALDAV_SERVER_URL,CALDAV_USERNAME,CALDAV_PASSWORD,CALDAV_MCP_TOOLS,CALDAV_MCP_TIME_ZONE,HOST,PORT,LOG_LEVEL,MCP_BEARER_TOKEN,ALLOW_BEARER_TOKEN_WITH_OAUTH,TRUSTED_PROXIES,PUBLIC_URL,OWNER_PASSWORD_HASH,AUTH_PEPPER,OAUTH_KV_PATH",
-        "jsr:@spy4x/caldav-mcp@1.6.0"
+        "--allow-env=CALDAV_URL,CALDAV_SERVER_URL,CALDAV_USERNAME,CALDAV_PASSWORD,CALDAV_ALLOW_HTTP,CALDAV_MCP_TOOLS,CALDAV_MCP_TIME_ZONE,HOST,PORT,LOG_LEVEL,MCP_BEARER_TOKEN,ALLOW_BEARER_TOKEN_WITH_OAUTH,TRUSTED_PROXIES,PUBLIC_URL,OWNER_PASSWORD_HASH,AUTH_PEPPER,OAUTH_KV_PATH",
+        "jsr:@spy4x/caldav-mcp@2.0.0"
       ],
       "env": {
         "CALDAV_URL": "https://cal.example.com",
@@ -83,7 +87,7 @@ Restart Claude Desktop and ask "Which calendars do I have?". The answer comes fr
 [clients.md](https://github.com/spy4x/caldav-mcp/blob/main/docs/clients.md).
 
 The version is pinned, so the code you run never changes under you; move to a newer release by
-changing `@1.6.0`. The two permissions are all it needs: `--allow-net` lets it reach your CalDAV
+changing `@2.0.0`. The two permissions are all it needs: `--allow-net` lets it reach your CalDAV
 server and nothing else, and `--allow-env` lets it read only the settings in
 [configuration.md](https://github.com/spy4x/caldav-mcp/blob/main/docs/configuration.md). It
 reads and writes no files and starts no programs. If your server sends clients on to another host,

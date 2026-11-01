@@ -9,12 +9,28 @@ Every tool caldav-mcp offers, what its answers look like, and example calls. Bac
 |------|-------------|-----------------|
 | `query_todos` | Search tasks across ALL calendars | **`calendarUrl` is optional** — one call, all data |
 | `query_events` | Search events across ALL calendars | Same — cross-calendar by default |
-| `list_calendars` | List all calendars + component types | Auto-discovers structure |
+| `list_calendars` | List all calendars + component types, subscriptions marked | Auto-discovers structure |
 | `create_todo` / `update_todo` / `delete_todo` | Full task CRUD | ETag-based concurrency |
 | `create_event` / `update_event` / `delete_event` | Full event CRUD | Same pattern |
 | `get_todo` / `get_event` | Single item by URL | Read-back for verification |
 | `make_calendar` | Create a calendar collection | AI can organize projects |
 | `delete_calendar` | Delete a calendar collection and all its events/todos | Cleans up after a project |
+
+## Calendar subscriptions
+
+A subscribed iCalendar feed is listed by `list_calendars` with `"subscribed": true`. Its events
+show up in `query_events`, with the date range and text filters applied by caldav-mcp itself, and
+`get_event` reads one by the URL `query_events` gives it: the subscription's URL with
+`#<UID>` at the end. The `etag` is `null`.
+
+- **Read-only.** Every write to a subscription (`create_event`, `update_event`, `delete_event`,
+  `delete_calendar` and the task tools) is refused with code `ReadOnly` before any change is sent.
+- **Events only.** Task queries leave subscriptions out.
+- **Read from your server, never the feed.** caldav-mcp reads the server's copy with
+  `GET <calendar>?export`, which sabre/dav servers such as Nextcloud offer. A server without it
+  shows the subscription under `failedCalendars`.
+- A repeating event is in a date range when one of its dates is. When its date cannot be worked
+  out (an unknown time zone, a repeat rule it cannot read), it is kept rather than dropped.
 
 ## AI-First Design
 
