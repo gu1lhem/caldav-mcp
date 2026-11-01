@@ -29,7 +29,14 @@ async function main(): Promise<void> {
   // `caldav-mcp grants …` manages OAuth grants and exits; it needs no CalDAV settings.
   if (Deno.args[0] === 'grants') Deno.exit(await runGrantsCommand(Deno.args.slice(1)))
 
-  const env = loadEnv()
+  let env: Env
+  try {
+    env = loadEnv()
+  } catch (err) {
+    // A setting it cannot use: one sentence naming the variable, no stack trace.
+    console.error(`caldav-mcp cannot start: ${err instanceof Error ? err.message : err}`)
+    Deno.exit(1)
+  }
   const log = createLogger(env, (line) => console.error(line))
 
   log('info', `caldav-mcp v${VERSION} starting...`)
@@ -39,6 +46,7 @@ async function main(): Promise<void> {
   const client = createCalDavClient({
     serverUrl: env.caldavUrl,
     auth: { username: env.caldavUsername, password: env.caldavPassword },
+    allowHttp: env.allowHttp,
   })
   const engine = new QueryEngine(client, engineOptions(env))
   log('info', `Time zone: ${engine.zone}`)

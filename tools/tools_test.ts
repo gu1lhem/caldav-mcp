@@ -7,7 +7,10 @@ import { McpHandler } from '../mcp.ts'
 import { registerAllTools, type ToolMode } from './index.ts'
 import { ORIGIN } from '../caldav/testing/fake_caldav.ts'
 import {
+  addSubscription,
+  BIRTHDAY_URL,
   EVENTS,
+  HOLIDAYS,
   lineDiff,
   MEETING,
   MEETING_ETAG,
@@ -367,4 +370,15 @@ Deno.test('a task and an event with a version 4 UID are read, updated and delete
     assertEquals(deleted.isError, false)
     assert(!fake.objects.has(path))
   }
+})
+
+Deno.test('through the tools a subscription is listed and read, and an edit is a ReadOnly error', async () => {
+  const { fake, call } = server()
+  addSubscription(fake)
+  const listed = (await call('list_calendars', {})).body as unknown as Record<string, unknown>[]
+  assertEquals(listed.find((c) => c['url'] === url(HOLIDAYS))?.['subscribed'], true)
+  const got = await call('get_event', { url: BIRTHDAY_URL })
+  assertEquals([got.isError, got.body['url']], [false, BIRTHDAY_URL])
+  const edit = await call('update_event', { url: BIRTHDAY_URL, etag: '"1"', summary: 'x' })
+  assertEquals([edit.isError, edit.body['code']], [true, 'ReadOnly'])
 })

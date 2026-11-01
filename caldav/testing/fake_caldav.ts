@@ -18,6 +18,11 @@ export interface FakeObject {
 export interface FakeCalendar {
   displayName: string
   components: string[]
+  /**
+   * Makes this a calendar subscription, as Nextcloud lists one (`cs:subscribed`): the text
+   * `GET <calendar>?export` answers with. Like Nextcloud, it holds no objects of its own.
+   */
+  feed?: string
 }
 
 export interface RecordedRequest {
@@ -46,7 +51,8 @@ function xmlEscape(text: string): string {
 
 function multistatus(responses: string[]): Response {
   const body = '<?xml version="1.0" encoding="UTF-8"?>' +
-    '<D:multistatus xmlns:D="DAV:" xmlns:A="urn:ietf:params:xml:ns:caldav">' +
+    '<D:multistatus xmlns:D="DAV:" xmlns:A="urn:ietf:params:xml:ns:caldav" ' +
+    'xmlns:CS="http://calendarserver.org/ns/">' +
     responses.join('') + '</D:multistatus>'
   return new Response(body, {
     status: 207,
@@ -61,7 +67,8 @@ function ok(href: string, props: string): string {
 
 function calendarProps(calendar: FakeCalendar): string {
   const comps = calendar.components.map((c) => `<A:comp name="${c}"/>`).join('')
-  return '<D:resourcetype><D:collection/><A:calendar/></D:resourcetype>' +
+  const type = calendar.feed === undefined ? '<A:calendar/>' : '<CS:subscribed/>'
+  return `<D:resourcetype><D:collection/>${type}</D:resourcetype>` +
     `<D:displayname>${xmlEscape(calendar.displayName)}</D:displayname>` +
     `<A:supported-calendar-component-set>${comps}</A:supported-calendar-component-set>`
 }
@@ -96,13 +103,19 @@ export function createFakeCalDav(
       })
       if (url.origin !== ORIGIN) return new Response('elsewhere', { status: 200 })
       if (request.headers.get('Authorization') !== AUTH) return new Response(null, { status: 401 })
-      return handle(request.method, url.pathname, request.headers, body)
+      return handle(request.method, url.pathname, request.headers, body, url.search)
     },
   }
 
   const newEtag = () => `"${nextEtag++}"`
 
-  function handle(method: string, path: string, headers: Headers, body: string): Response {
+  function handle(
+    method: string,
+    path: string,
+    headers: Headers,
+    body: string,
+    search: string,
+  ): Response {
     const calendar = fake.calendars.get(path)
     const object = fake.objects.get(path)
     switch (method) {
@@ -150,6 +163,12 @@ export function createFakeCalDav(
         return multistatus(entries)
       }
       case 'GET':
+        if (calendar?.feed !== undefined && search === '?export') {
+          return new Response(calendar.feed, {
+            status: 200,
+            headers: { 'Content-Type': 'text/calendar' },
+          })
+        }
         if (!object) return new Response(null, { status: 404 })
         return new Response(object.data, {
           status: 200,

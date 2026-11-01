@@ -7,7 +7,7 @@ Basic auth only, so a server set to Digest auth, such as Baïkal by default, nee
 
 ```bash
 deno compile --unstable-kv --allow-net \
-  --allow-env=CALDAV_URL,CALDAV_SERVER_URL,CALDAV_USERNAME,CALDAV_PASSWORD,CALDAV_MCP_TOOLS,CALDAV_MCP_TIME_ZONE,HOST,PORT,LOG_LEVEL,MCP_BEARER_TOKEN,ALLOW_BEARER_TOKEN_WITH_OAUTH,TRUSTED_PROXIES,PUBLIC_URL,OWNER_PASSWORD_HASH,AUTH_PEPPER,OAUTH_KV_PATH \
+  --allow-env=CALDAV_URL,CALDAV_SERVER_URL,CALDAV_USERNAME,CALDAV_PASSWORD,CALDAV_ALLOW_HTTP,CALDAV_MCP_TOOLS,CALDAV_MCP_TIME_ZONE,HOST,PORT,LOG_LEVEL,MCP_BEARER_TOKEN,ALLOW_BEARER_TOKEN_WITH_OAUTH,TRUSTED_PROXIES,PUBLIC_URL,OWNER_PASSWORD_HASH,AUTH_PEPPER,OAUTH_KV_PATH \
   --allow-read=/data --allow-write=/data \
   --output caldav-mcp jsr:@spy4x/caldav-mcp@1.6.0
 ./caldav-mcp                 # stdio (for MCP clients)
@@ -40,6 +40,8 @@ services:
     restart: unless-stopped
     environment:
       - CALDAV_URL=http://radicale:5232
+      # http: is refused unless allowed; fine here, on the private container network only.
+      - CALDAV_ALLOW_HTTP=true
       - CALDAV_USERNAME=${CALDAV_USERNAME}
       - CALDAV_PASSWORD=${CALDAV_PASSWORD}
       - MCP_BEARER_TOKEN=${MCP_BEARER_TOKEN}
@@ -56,7 +58,7 @@ services:
 ```bash
 # Install binary (no OAuth here; for OAuth add the flags from "Compile to binary" above)
 sudo deno compile --allow-net=localhost:5232,127.0.0.1:3000 \
-  --allow-env=CALDAV_URL,CALDAV_SERVER_URL,CALDAV_USERNAME,CALDAV_PASSWORD,CALDAV_MCP_TOOLS,CALDAV_MCP_TIME_ZONE,HOST,PORT,LOG_LEVEL,MCP_BEARER_TOKEN,ALLOW_BEARER_TOKEN_WITH_OAUTH,TRUSTED_PROXIES,PUBLIC_URL,OWNER_PASSWORD_HASH,AUTH_PEPPER,OAUTH_KV_PATH \
+  --allow-env=CALDAV_URL,CALDAV_SERVER_URL,CALDAV_USERNAME,CALDAV_PASSWORD,CALDAV_ALLOW_HTTP,CALDAV_MCP_TOOLS,CALDAV_MCP_TIME_ZONE,HOST,PORT,LOG_LEVEL,MCP_BEARER_TOKEN,ALLOW_BEARER_TOKEN_WITH_OAUTH,TRUSTED_PROXIES,PUBLIC_URL,OWNER_PASSWORD_HASH,AUTH_PEPPER,OAUTH_KV_PATH \
   --output /usr/local/bin/caldav-mcp jsr:@spy4x/caldav-mcp@1.6.0
 
 # Systemd service
@@ -68,6 +70,8 @@ After=network.target
 [Service]
 ExecStart=/usr/local/bin/caldav-mcp --http
 Environment=CALDAV_URL=http://localhost:5232
+# http: is refused unless allowed; fine here, since the request never leaves this machine.
+Environment=CALDAV_ALLOW_HTTP=true
 Environment=CALDAV_USERNAME=user
 Environment=CALDAV_PASSWORD=pass
 Environment=PORT=3000

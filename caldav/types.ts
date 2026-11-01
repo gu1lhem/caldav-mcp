@@ -20,6 +20,8 @@ export interface CalendarInfo {
   components: string[]
   color?: string
   ctag?: string
+  /** Present and true on a calendar subscription: an external feed, readable but read-only. */
+  subscribed?: true
 }
 
 /** One task in a `query_todos` list. */
