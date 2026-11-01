@@ -15,8 +15,8 @@ deno compile --unstable-kv --allow-net \
 ```
 
 The permissions are compiled into the binary. `--allow-net` lets it listen on its port and reach
-your CalDAV server; name both (`--allow-net=cal.example.com,127.0.0.1:3000`) if you know them when you
-compile. `--allow-env` lists the settings in [configuration.md](configuration.md).
+your CalDAV server; name both (`--allow-net=cal.example.com,127.0.0.1:3000`) if you know them when
+you compile. `--allow-env` lists the settings in [configuration.md](configuration.md).
 `--unstable-kv`, `--allow-read=/data` and `--allow-write=/data` are needed only for OAuth, which
 keeps its tokens in Deno KV at `OAUTH_KV_PATH` (default `/data/oauth.kv`); put a different path in
 both flags if you change it.

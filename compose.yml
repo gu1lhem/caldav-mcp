@@ -27,6 +27,7 @@ services:
     cpus: 0.25
     networks:
       - proxy
+
 networks:
   proxy:
     external: true
