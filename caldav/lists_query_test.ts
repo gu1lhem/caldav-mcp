@@ -88,18 +88,51 @@ Deno.test('without lists configured, every list is refused with NoLists', async 
   assertEquals(result.error.code, 'NoLists')
 })
 
-Deno.test('listLists shows the members, a null displayName for a missing calendar', async () => {
+Deno.test('listLists shows the built-in all first, then the members', async () => {
   const { engine } = setup(withLists({ perso: [url(TASKS), `${url(TASKS)}gone/`] }))
   const result = await engine.listLists()
   assertEquals(result.success, true)
   if (!result.success) return
-  assertEquals(result.output, [{
+  const [builtin, ...named] = result.output
+  assertEquals(builtin!.name, 'all')
+  const displayNames = builtin!.calendars.map((c) => c.displayName)
+  assert(displayNames.includes('Inbox'))
+  assert(displayNames.includes('Meetings'))
+  assertEquals(named, [{
     name: 'perso',
     calendars: [
       { url: url(TASKS), displayName: 'Inbox' },
       { url: `${url(TASKS)}gone/`, displayName: null },
     ],
   }])
+})
+
+Deno.test('the built-in all reads every calendar, including one added later', async () => {
+  const { fake, engine } = setup(withLists({ perso: [url(TASKS)] }))
+  addSubscription(fake)
+  const result = await engine.queryEvents({ list: 'all' })
+  assertEquals(result.success, true)
+  if (!result.success) return
+  const names = result.output.events.map((e) => (e as EventSummary).calendar)
+  assert(names.includes('Meetings'), 'Meetings')
+  assert(names.includes(HOLIDAYS_NAME), HOLIDAYS_NAME)
+  // a list made before the subscription still knows only its own calendars
+  const persoResult = await engine.queryEvents({ list: 'perso' })
+  assertEquals(persoResult.success, true)
+  if (!persoResult.success) return
+  assertEquals(persoResult.output.total, 0)
+})
+
+Deno.test('the built-in all leaves a subscription out of todos', async () => {
+  const { fake, engine } = setup(withLists({ perso: [url(TASKS)] }))
+  addSubscription(fake)
+  const result = await engine.queryTodos({ list: 'all' })
+  assertEquals(result.success, true)
+  if (!result.success) return
+  assertEquals(
+    result.output.todos.every((t) => (t as TodoSummary).calendar === 'Inbox'),
+    true,
+  )
 })
 
 Deno.test('listLists without lists configured answers empty', async () => {

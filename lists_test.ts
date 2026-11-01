@@ -117,7 +117,7 @@ Deno.test('list names the lists and their calendars', async () => {
 Deno.test('list without lists says so', async () => {
   const h = harness({}, [])
   assertEquals(await runLists(['list'], h.deps), 0)
-  assert(h.out.join('\n').includes('No lists yet'), h.out.join('\n'))
+  assert(h.out.join('\n').includes('No other lists yet'), h.out.join('\n'))
 })
 
 Deno.test('add saves the picked calendars and keeps the others', async () => {
@@ -143,8 +143,16 @@ Deno.test('edit starts from the current members', async () => {
 
 Deno.test('all and none flip every calendar', async () => {
   const h = harness({}, ['none', 'all', ''])
-  assertEquals(await runLists(['add', 'all'], h.deps), 0)
-  assertEquals(h.written, [{ all: ['https://dav/a/', 'https://dav/b/'] }])
+  assertEquals(await runLists(['add', 'everything'], h.deps), 0)
+  assertEquals(h.written, [{ everything: ['https://dav/a/', 'https://dav/b/'] }])
+})
+
+Deno.test('the built-in name all is refused for add, edit and remove', async () => {
+  for (const command of ['add', 'edit', 'remove'] as const) {
+    const h = harness({}, [])
+    assertEquals(await runLists([command, 'all'], h.deps), 1)
+    assertEquals(h.written, [])
+  }
 })
 
 Deno.test('a number out of range is refused and nothing is saved yet', async () => {

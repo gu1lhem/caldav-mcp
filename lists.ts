@@ -123,6 +123,10 @@ export async function runLists(args: readonly string[], deps: ListsDeps): Promis
       deps.output.err(err instanceof Error ? err.message : String(err))
       return 1
     }
+    if (listName === 'all') {
+      deps.output.err('"all" is built in: it is every calendar, always current.')
+      return 1
+    }
     if (command === 'remove') return await removeList(listName, deps)
     return await editList(listName, command === 'add', deps)
   }
@@ -133,8 +137,10 @@ export async function runLists(args: readonly string[], deps: ListsDeps): Promis
 async function showLists(deps: ListsDeps): Promise<number> {
   const lists = await deps.readLists()
   const names = Object.keys(lists).sort()
+  deps.output.out('all:')
+  deps.output.out('  (built-in) every calendar, always current')
   if (names.length === 0) {
-    deps.output.out('No lists yet. Run "caldav-mcp lists add <name>" to make one.')
+    deps.output.out('No other lists yet. Run "caldav-mcp lists add <name>" to make one.')
     return 0
   }
   let calendars: { url: string; displayName?: string }[] = []

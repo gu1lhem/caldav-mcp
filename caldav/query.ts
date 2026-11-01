@@ -449,8 +449,9 @@ export class QueryEngine {
   }
 
   /**
-   * The named lists and their members, as the `list_lists` tool shows them: a null displayName
-   * marks a calendar that no longer exists, so a stale list is visible before it is queried.
+   * The named lists and their members, as the `list_lists` tool shows them: the built-in `all`
+   * first, then the owner's lists; a null displayName marks a calendar that no longer exists,
+   * so a stale list is visible before it is queried.
    */
   async listLists(): Promise<EngineResult<ListInfo[]>> {
     if (!this.#lists) return ok([])
@@ -458,15 +459,19 @@ export class QueryEngine {
     if (!lists.success) return lists
     const calendars = await this.#calendars()
     if (!calendars.success) return calendars
-    return ok(
-      Object.entries(lists.output).map(([name, urls]) => ({
+    return ok([
+      {
+        name: 'all',
+        calendars: calendars.output.map((c) => ({ url: c.url, displayName: c.displayName })),
+      },
+      ...Object.entries(lists.output).map(([name, urls]) => ({
         name,
         calendars: urls.map((url) => ({
           url,
           displayName: calendars.output.find((c) => sameResource(c.url, url))?.displayName ?? null,
         })),
       })),
-    )
+    ])
   }
 
   /**
@@ -517,6 +522,11 @@ export class QueryEngine {
       const one = await this.#knownCalendar(calendarUrl, component, 'read')
       return one.success ? ok([one.output]) : one
     }
+    return await this.#everyCalendar(component)
+  }
+
+  /** Every calendar that holds `component`: the default targets, and the built-in list `all`. */
+  async #everyCalendar(component: string): Promise<EngineResult<CalDavCalendar[]>> {
     const calendars = await this.#calendars()
     if (!calendars.success) return calendars
     // A subscription is an iCalendar feed of events, so task queries leave it out.
@@ -536,6 +546,9 @@ export class QueryEngine {
     if (!this.#lists) {
       return fail('NoLists', 'this server runs without calendar lists (CALDAV_LISTS_PATH)')
     }
+    // The built-in `all` is every calendar read live, so a calendar added later joins it on its
+    // own; a stored list of the same name is shadowed by it.
+    if (list === 'all') return await this.#everyCalendar(component)
     const lists = await this.#lists()
     if (!lists.success) return lists
     const urls = lists.output[list]

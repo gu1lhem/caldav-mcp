@@ -236,8 +236,9 @@ rewrites whole and the server re-reads on every call, so an edit applies without
 query on a list that names a calendar which no longer exists is refused, naming it, instead of
 silently answering with half the picture.
 
-The built-in `all` list always exists and covers every calendar, so `"all"` is a stable way
-to query everything without naming calendars one by one.
+The built-in `all` list always exists and is read live — every calendar, including ones added
+later — so `"all"` is a stable way to query everything without naming calendars one by one.
+The CLI refuses to make a stored list of that name.
 
 ## Development
 
