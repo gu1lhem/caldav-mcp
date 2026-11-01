@@ -316,7 +316,7 @@ Deno.test('no-delete refuses a delete_todo call and sends no DELETE', async () =
   assertEquals(fake.requests.filter((r) => r.method === 'DELETE'), [])
 })
 
-Deno.test('read-only lists only the five tools that change nothing', async () => {
+Deno.test('read-only lists only the tools that change nothing', async () => {
   assertEquals(await listedNames(server('read-only').mcp), READ_TOOLS)
 })
 
