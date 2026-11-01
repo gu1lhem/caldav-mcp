@@ -9,7 +9,7 @@ Basic auth only, so a server set to Digest auth, such as Baïkal by default, nee
 deno compile --unstable-kv --allow-net \
   --allow-env=CALDAV_URL,CALDAV_SERVER_URL,CALDAV_USERNAME,CALDAV_PASSWORD,CALDAV_ALLOW_HTTP,CALDAV_MCP_TOOLS,CALDAV_MCP_TIME_ZONE,HOST,PORT,LOG_LEVEL,MCP_BEARER_TOKEN,ALLOW_BEARER_TOKEN_WITH_OAUTH,TRUSTED_PROXIES,PUBLIC_URL,OWNER_PASSWORD_HASH,AUTH_PEPPER,OAUTH_KV_PATH \
   --allow-read=/data --allow-write=/data \
-  --output caldav-mcp jsr:@spy4x/caldav-mcp@1.6.0
+  --output caldav-mcp jsr:@spy4x/caldav-mcp@2.0.0
 ./caldav-mcp                 # stdio (for MCP clients)
 ./caldav-mcp --http          # HTTP on 127.0.0.1:3000; needs MCP_BEARER_TOKEN, set HOST to listen elsewhere
 ```
@@ -24,18 +24,18 @@ both flags if you change it.
 ## Docker
 
 Every release is published to Docker Hub as `antonshubin/caldav-mcp`, tagged with its version
-(and `latest`). It starts in HTTP mode on port 3000. Releases after 1.6.0 run on both `amd64` and
-`arm64` (a Raspberry Pi, say), and `docker pull` picks your machine's; 1.6.0 itself is `amd64`
+(and `latest`). It starts in HTTP mode on port 3000. From 2.0.0 on, releases run on both `amd64` and
+`arm64` (a Raspberry Pi, say), and `docker pull` picks your machine's; 1.6.0 and older are `amd64`
 only. `docker build .` builds for the machine it runs on.
 
 ```bash
-docker pull antonshubin/caldav-mcp:1.6.0
+docker pull antonshubin/caldav-mcp:2.0.0
 ```
 
 ```yaml
 services:
   caldav-mcp:
-    image: antonshubin/caldav-mcp:1.6.0
+    image: antonshubin/caldav-mcp:2.0.0
     container_name: caldav-mcp
     restart: unless-stopped
     environment:
@@ -59,7 +59,7 @@ services:
 # Install binary (no OAuth here; for OAuth add the flags from "Compile to binary" above)
 sudo deno compile --allow-net=localhost:5232,127.0.0.1:3000 \
   --allow-env=CALDAV_URL,CALDAV_SERVER_URL,CALDAV_USERNAME,CALDAV_PASSWORD,CALDAV_ALLOW_HTTP,CALDAV_MCP_TOOLS,CALDAV_MCP_TIME_ZONE,HOST,PORT,LOG_LEVEL,MCP_BEARER_TOKEN,ALLOW_BEARER_TOKEN_WITH_OAUTH,TRUSTED_PROXIES,PUBLIC_URL,OWNER_PASSWORD_HASH,AUTH_PEPPER,OAUTH_KV_PATH \
-  --output /usr/local/bin/caldav-mcp jsr:@spy4x/caldav-mcp@1.6.0
+  --output /usr/local/bin/caldav-mcp jsr:@spy4x/caldav-mcp@2.0.0
 
 # Systemd service
 cat > /etc/systemd/system/caldav-mcp.service << 'EOF'
