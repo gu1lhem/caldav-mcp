@@ -259,4 +259,3 @@ Licensed under [MIT](LICENSE). Copyright (c) 2026 Anton Shubin.
 ---
 
 Made by Anton Shubin · [antonshubin.com/tools/caldav-mcp](https://antonshubin.com/tools/caldav-mcp)
-
