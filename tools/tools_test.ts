@@ -284,7 +284,14 @@ async function listedNames(mcp: McpHandler): Promise<string[]> {
 }
 
 const DELETE_TOOLS = ['delete_calendar', 'delete_event', 'delete_todo']
-const READ_TOOLS = ['get_event', 'get_todo', 'list_calendars', 'query_events', 'query_todos']
+const READ_TOOLS = [
+  'get_event',
+  'get_todo',
+  'list_calendars',
+  'list_lists',
+  'query_events',
+  'query_todos',
+]
 
 Deno.test('all lists the delete tools', async () => {
   const names = await listedNames(server('all').mcp)
@@ -309,7 +316,7 @@ Deno.test('no-delete refuses a delete_todo call and sends no DELETE', async () =
   assertEquals(fake.requests.filter((r) => r.method === 'DELETE'), [])
 })
 
-Deno.test('read-only lists only the five tools that change nothing', async () => {
+Deno.test('read-only lists only the tools that change nothing', async () => {
   assertEquals(await listedNames(server('read-only').mcp), READ_TOOLS)
 })
 
