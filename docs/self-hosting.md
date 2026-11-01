@@ -7,16 +7,16 @@ Basic auth only, so a server set to Digest auth, such as Baïkal by default, nee
 
 ```bash
 deno compile --unstable-kv --allow-net \
-  --allow-env=CALDAV_URL,CALDAV_SERVER_URL,CALDAV_USERNAME,CALDAV_PASSWORD,CALDAV_MCP_TOOLS,CALDAV_MCP_TIME_ZONE,HOST,PORT,LOG_LEVEL,MCP_BEARER_TOKEN,ALLOW_BEARER_TOKEN_WITH_OAUTH,TRUSTED_PROXIES,PUBLIC_URL,OWNER_PASSWORD_HASH,AUTH_PEPPER,OAUTH_KV_PATH \
+  --allow-env=CALDAV_URL,CALDAV_SERVER_URL,CALDAV_USERNAME,CALDAV_PASSWORD,CALDAV_ALLOW_HTTP,CALDAV_MCP_TOOLS,CALDAV_MCP_TIME_ZONE,HOST,PORT,LOG_LEVEL,MCP_BEARER_TOKEN,ALLOW_BEARER_TOKEN_WITH_OAUTH,TRUSTED_PROXIES,PUBLIC_URL,OWNER_PASSWORD_HASH,AUTH_PEPPER,OAUTH_KV_PATH \
   --allow-read=/data --allow-write=/data \
-  --output caldav-mcp jsr:@spy4x/caldav-mcp@1.6.0
+  --output caldav-mcp jsr:@spy4x/caldav-mcp@2.0.0
 ./caldav-mcp                 # stdio (for MCP clients)
 ./caldav-mcp --http          # HTTP on 127.0.0.1:3000; needs MCP_BEARER_TOKEN, set HOST to listen elsewhere
 ```
 
 The permissions are compiled into the binary. `--allow-net` lets it listen on its port and reach
-your CalDAV server; name both (`--allow-net=cal.example.com,127.0.0.1:3000`) if you know them when
-you compile. `--allow-env` lists the settings in [configuration.md](configuration.md).
+your CalDAV server; name both (`--allow-net=cal.example.com,127.0.0.1:3000`) if you know them when you
+compile. `--allow-env` lists the settings in [configuration.md](configuration.md).
 `--unstable-kv`, `--allow-read=/data` and `--allow-write=/data` are needed only for OAuth, which
 keeps its tokens in Deno KV at `OAUTH_KV_PATH` (default `/data/oauth.kv`); put a different path in
 both flags if you change it.
@@ -24,20 +24,24 @@ both flags if you change it.
 ## Docker
 
 Every release is published to Docker Hub as `antonshubin/caldav-mcp`, tagged with its version
-(and `latest`). It starts in HTTP mode on port 3000.
+(and `latest`). It starts in HTTP mode on port 3000. From 2.0.0 on, releases run on both `amd64` and
+`arm64` (a Raspberry Pi, say), and `docker pull` picks your machine's; 1.6.0 and older are `amd64`
+only. `docker build .` builds for the machine it runs on.
 
 ```bash
-docker pull antonshubin/caldav-mcp:1.6.0
+docker pull antonshubin/caldav-mcp:2.0.0
 ```
 
 ```yaml
 services:
   caldav-mcp:
-    image: antonshubin/caldav-mcp:1.6.0
+    image: antonshubin/caldav-mcp:2.0.0
     container_name: caldav-mcp
     restart: unless-stopped
     environment:
       - CALDAV_URL=http://radicale:5232
+      # http: is refused unless allowed; fine here, on the private container network only.
+      - CALDAV_ALLOW_HTTP=true
       - CALDAV_USERNAME=${CALDAV_USERNAME}
       - CALDAV_PASSWORD=${CALDAV_PASSWORD}
       - MCP_BEARER_TOKEN=${MCP_BEARER_TOKEN}
@@ -54,8 +58,8 @@ services:
 ```bash
 # Install binary (no OAuth here; for OAuth add the flags from "Compile to binary" above)
 sudo deno compile --allow-net=localhost:5232,127.0.0.1:3000 \
-  --allow-env=CALDAV_URL,CALDAV_SERVER_URL,CALDAV_USERNAME,CALDAV_PASSWORD,CALDAV_MCP_TOOLS,CALDAV_MCP_TIME_ZONE,HOST,PORT,LOG_LEVEL,MCP_BEARER_TOKEN,ALLOW_BEARER_TOKEN_WITH_OAUTH,TRUSTED_PROXIES,PUBLIC_URL,OWNER_PASSWORD_HASH,AUTH_PEPPER,OAUTH_KV_PATH \
-  --output /usr/local/bin/caldav-mcp jsr:@spy4x/caldav-mcp@1.6.0
+  --allow-env=CALDAV_URL,CALDAV_SERVER_URL,CALDAV_USERNAME,CALDAV_PASSWORD,CALDAV_ALLOW_HTTP,CALDAV_MCP_TOOLS,CALDAV_MCP_TIME_ZONE,HOST,PORT,LOG_LEVEL,MCP_BEARER_TOKEN,ALLOW_BEARER_TOKEN_WITH_OAUTH,TRUSTED_PROXIES,PUBLIC_URL,OWNER_PASSWORD_HASH,AUTH_PEPPER,OAUTH_KV_PATH \
+  --output /usr/local/bin/caldav-mcp jsr:@spy4x/caldav-mcp@2.0.0
 
 # Systemd service
 cat > /etc/systemd/system/caldav-mcp.service << 'EOF'
@@ -66,6 +70,8 @@ After=network.target
 [Service]
 ExecStart=/usr/local/bin/caldav-mcp --http
 Environment=CALDAV_URL=http://localhost:5232
+# http: is refused unless allowed; fine here, since the request never leaves this machine.
+Environment=CALDAV_ALLOW_HTTP=true
 Environment=CALDAV_USERNAME=user
 Environment=CALDAV_PASSWORD=pass
 Environment=PORT=3000

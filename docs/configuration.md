@@ -7,6 +7,7 @@ All settings are environment variables, read once at startup.
 | `CALDAV_URL` | — | CalDAV server URL (or `CALDAV_SERVER_URL`) |
 | `CALDAV_USERNAME` | — | CalDAV auth username |
 | `CALDAV_PASSWORD` | — | CalDAV auth password |
+| `CALDAV_ALLOW_HTTP` | `false` | `true` allows an `http:` `CALDAV_URL`, whose password travels unencrypted: use it only for localhost or a private container network. An `http:` address without it stops startup. Read only for an `http:` address |
 | `HOST` | `127.0.0.1` | Interface the HTTP mode binds to. Set `0.0.0.0` inside a container |
 | `PORT` | `3000` | HTTP port (for `--http` mode) |
 | `MCP_BEARER_TOKEN` | — | Static token for HTTP mode. Without it or OAuth `--http` refuses to start. Setting it also turns HTTP mode on. Refused while OAuth is on, unless the next variable allows it |
