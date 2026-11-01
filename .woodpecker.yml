@@ -9,15 +9,30 @@ steps:
       - deno task test --frozen
       - deno publish --dry-run
 
-  # Builds the Docker image on every pull request and pushes nothing, so a change that breaks the
-  # Dockerfile fails here instead of at the next release. kaniko builds in user space inside an
-  # ordinary container: no Docker daemon, no volume, no privileged mode, no secret.
-  image-build:
+  # Builds the Docker image for both platforms on every pull request and pushes nothing, so a
+  # change that breaks the Dockerfile fails here instead of at the next release. kaniko builds in
+  # user space inside an ordinary container: no Docker daemon, no volume, no privileged mode, no
+  # secret. The Dockerfile cross-compiles, so the arm64 build needs no emulation. kaniko ignores
+  # the builder stage's `--platform`, so BUILDER names the builder image's amd64 digest (this CI's
+  # agents are amd64); keep it in step with the Dockerfile's default. One kaniko run per step:
+  # kaniko rewrites its own container's file system while it builds.
+  image-build-amd64:
     image: martizih/kaniko:v1.28.5-alpine@sha256:6ba327d49f75147a44e39e8a977e9cde11b483832214b307ccf11f9da360693c
     when:
       event: pull_request
     commands:
-      - /kaniko/executor --context "$$CI_WORKSPACE" --dockerfile Dockerfile --no-push
+      - /kaniko/executor --context "$$CI_WORKSPACE" --dockerfile Dockerfile
+        --build-arg "BUILDER=denoland/deno:alpine-2.9.7@sha256:0a8753f9da5aafa65988f56af167700c055708a040df8bf154ce8ebe8e4adc75"
+        --custom-platform linux/amd64 --no-push
+
+  image-build-arm64:
+    image: martizih/kaniko:v1.28.5-alpine@sha256:6ba327d49f75147a44e39e8a977e9cde11b483832214b307ccf11f9da360693c
+    when:
+      event: pull_request
+    commands:
+      - /kaniko/executor --context "$$CI_WORKSPACE" --dockerfile Dockerfile
+        --build-arg "BUILDER=denoland/deno:alpine-2.9.7@sha256:0a8753f9da5aafa65988f56af167700c055708a040df8bf154ce8ebe8e4adc75"
+        --custom-platform linux/arm64 --no-push
 
   # Guards against an accidental release: a `v*` tag publishes to JSR with the global token, so
   # this step fails the build unless the tagged commit is already on `main` (reviewed, green CI).
@@ -36,11 +51,12 @@ steps:
   # A `v*` tag also publishes the Docker image `antonshubin/caldav-mcp` to Docker Hub, in two steps.
   # Building and pushing are separate because kaniko runs the Dockerfile's RUN lines (`deno compile`
   # and every module it downloads) in its own container, where a login would be readable by all of
-  # them. `image` holds no secret and writes the image to a tar file in the workspace; `image-push`
-  # runs only crane, never repository code, and is the one step that gets DOCKERHUB_USERNAME and
-  # DOCKERHUB_TOKEN (the server's global secrets, enabled for the tag event). It runs before the
-  # JSR publish, so a Dockerfile that no longer builds stops the release before anything is out.
-  image:
+  # them. The `image-*` steps hold no secret and write one tar file per platform (amd64 for
+  # servers, arm64 for a Raspberry Pi) to the workspace; `image-push` runs only crane, never
+  # repository code, and is the one step that gets DOCKERHUB_USERNAME and DOCKERHUB_TOKEN (the
+  # server's global secrets, enabled for the tag event). They run before the JSR publish, so a
+  # Dockerfile that no longer builds stops the release before anything is out.
+  image-amd64:
     image: martizih/kaniko:v1.28.5-alpine@sha256:6ba327d49f75147a44e39e8a977e9cde11b483832214b307ccf11f9da360693c
     when:
       event: tag
@@ -48,8 +64,22 @@ steps:
     commands:
       # --destination only names the image inside the tar; --no-push sends nothing anywhere.
       - /kaniko/executor --context "$$CI_WORKSPACE" --dockerfile Dockerfile
-        --destination "antonshubin/caldav-mcp:$${CI_COMMIT_TAG#v}"
-        --no-push --tar-path "$$CI_WORKSPACE/image.tar"
+        --build-arg "BUILDER=denoland/deno:alpine-2.9.7@sha256:0a8753f9da5aafa65988f56af167700c055708a040df8bf154ce8ebe8e4adc75"
+        --custom-platform linux/amd64
+        --destination "antonshubin/caldav-mcp:$${CI_COMMIT_TAG#v}-amd64"
+        --no-push --tar-path "$$CI_WORKSPACE/image-amd64.tar"
+
+  image-arm64:
+    image: martizih/kaniko:v1.28.5-alpine@sha256:6ba327d49f75147a44e39e8a977e9cde11b483832214b307ccf11f9da360693c
+    when:
+      event: tag
+      ref: refs/tags/v*
+    commands:
+      - /kaniko/executor --context "$$CI_WORKSPACE" --dockerfile Dockerfile
+        --build-arg "BUILDER=denoland/deno:alpine-2.9.7@sha256:0a8753f9da5aafa65988f56af167700c055708a040df8bf154ce8ebe8e4adc75"
+        --custom-platform linux/arm64
+        --destination "antonshubin/caldav-mcp:$${CI_COMMIT_TAG#v}-arm64"
+        --no-push --tar-path "$$CI_WORKSPACE/image-arm64.tar"
 
   # Publishes to JSR (`jsr:@spy4x/caldav-mcp`) on a `v*` tag, after `check` passed. The tag must
   # match `version` in deno.jsonc. `$$` stops Woodpecker substituting the variable itself.
@@ -76,8 +106,9 @@ steps:
         done
         exit 1
 
-  # Pushes the tar `image` built to Docker Hub as `antonshubin/caldav-mcp:<version>` (the tag
-  # without its `v`) and moves `latest` to it. crane's debug build, because the release builds
+  # Pushes both tars to Docker Hub as `antonshubin/caldav-mcp:<version>-amd64` and `-arm64`, then
+  # joins them into one multi-platform `antonshubin/caldav-mcp:<version>` (the tag without its `v`),
+  # so `docker pull` picks the host's platform, and moves `latest` to it. crane's debug build, because the release builds
   # have no shell; its shell is /busybox/sh and it has no /bin/sh, so the entrypoint is named here.
   # The image name and tags come from this file and CI_COMMIT_TAG, never from the workspace, which
   # the build step could write to. The login stays in this container, outside the workspace.
@@ -100,7 +131,10 @@ steps:
           export DOCKER_CONFIG=/tmp/docker
           printf '%s' "$$DOCKERHUB_TOKEN" |
             crane auth login index.docker.io -u "$$DOCKERHUB_USERNAME" --password-stdin
-          crane push image.tar "$$IMAGE:$$VERSION"
+          crane push image-amd64.tar "$$IMAGE:$$VERSION-amd64"
+          crane push image-arm64.tar "$$IMAGE:$$VERSION-arm64"
+          crane index append --docker-empty-base \
+            -m "$$IMAGE:$$VERSION-amd64" -m "$$IMAGE:$$VERSION-arm64" -t "$$IMAGE:$$VERSION"
           # A pre-release tag (v1.2.3-rc.1) is published under its own name only; it never moves
           # latest.
           case "$$VERSION" in

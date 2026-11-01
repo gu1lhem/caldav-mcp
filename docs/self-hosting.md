@@ -24,7 +24,9 @@ both flags if you change it.
 ## Docker
 
 Every release is published to Docker Hub as `antonshubin/caldav-mcp`, tagged with its version
-(and `latest`). It starts in HTTP mode on port 3000.
+(and `latest`). It starts in HTTP mode on port 3000. Releases after 1.6.0 run on both `amd64` and
+`arm64` (a Raspberry Pi, say), and `docker pull` picks your machine's; 1.6.0 itself is `amd64`
+only. `docker build .` builds for the machine it runs on.
 
 ```bash
 docker pull antonshubin/caldav-mcp:1.6.0
