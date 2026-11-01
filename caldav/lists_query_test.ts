@@ -2,7 +2,14 @@
 
 import { assert, assertEquals } from 'std/assert/mod.ts'
 import type { CalendarLists, EngineResult, EventSummary, TodoSummary } from './types.ts'
-import { addSubscription, EVENTS, HOLIDAYS, HOLIDAYS_NAME, setup, TASKS } from './testing/fixtures.ts'
+import {
+  addSubscription,
+  EVENTS,
+  HOLIDAYS,
+  HOLIDAYS_NAME,
+  setup,
+  TASKS,
+} from './testing/fixtures.ts'
 import { ORIGIN } from './testing/fake_caldav.ts'
 
 const url = (path: string) => `${ORIGIN}${path}`
@@ -110,7 +117,10 @@ Deno.test('a list with a subscription serves its events', async () => {
   assertEquals(result.success, true)
   if (!result.success) return
   assert(result.output.total > 0)
-  assertEquals(result.output.events.every((e) => (e as EventSummary).calendar === HOLIDAYS_NAME), true)
+  assertEquals(
+    result.output.events.every((e) => (e as EventSummary).calendar === HOLIDAYS_NAME),
+    true,
+  )
 })
 
 Deno.test('a list with a subscription answers no todos: VTODO skips it', async () => {

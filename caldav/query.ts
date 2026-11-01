@@ -469,8 +469,6 @@ export class QueryEngine {
     )
   }
 
-  /** The listed calendar at `url`; anything else is refused, never guessed. */
-  async #knownCalendar(url: string, component?: string): Promise<EngineResult<CalDavCalendar>> {
   /**
    * The listed calendar at `url`; anything else is refused, never guessed. A write (the default)
    * to a calendar subscription is refused.
@@ -565,7 +563,6 @@ export class QueryEngine {
     )
   }
 
-  /** Read every object of `component` from the target calendars. */
   /**
    * Read every object of `component` from the target calendars. A subscription is read whole, so
    * the time range the server applies to a normal calendar is applied here.
